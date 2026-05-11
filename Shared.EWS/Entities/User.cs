@@ -9,5 +9,12 @@ namespace Shared.EWS.Entities
         public required string PasswordHash { get; set; }
         public required string MobileNumber { get; set; }
         public bool status { get; set; }
+
+        // Forgot password
+        public string? PasswordResetToken { get; set; }
+        public DateTime? PasswordResetTokenExpiry { get; set; }
+
+        // Navigation
+        public ICollection<UserToken> Tokens { get; set; } = new List<UserToken>();
     }
 }
