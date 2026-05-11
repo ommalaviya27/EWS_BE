@@ -1,11 +1,29 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
 using Api.EWS.Extensions;
+using Api.EWS.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Cors
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>()
+    ?? new[] { "http://localhost:4200" };
+ 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("EWSCorsPolicy", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // Swagger/OpenAPI configuration
 builder.Services.AddEndpointsApiExplorer();
@@ -19,7 +37,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Enter 'Bearer {token}'"
+        Description = "Enter your access token here. Example: Bearer eyJhbGci..."
     });
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
@@ -62,13 +80,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
+            Encoding.UTF8.GetBytes(jwtSettings["Key"]!)),
+        ClockSkew = TimeSpan.Zero
     };
 });
 
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Global exception middleware — must be first so it catches all pipeline exceptions
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -77,6 +99,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("EWSCorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

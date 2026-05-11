@@ -9,6 +9,7 @@ namespace Api.EWS.Extensions
         {
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<ITokenService, TokenService>();
+            services.AddScoped<IEmailService, EmailService>();
         }
     }
 }

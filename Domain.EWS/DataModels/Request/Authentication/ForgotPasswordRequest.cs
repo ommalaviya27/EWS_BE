@@ -1,6 +1,6 @@
 namespace Domain.EWS.DataModels.Request.Authentication
 {
-    public class ForgetPassword
+    public class ForgotPasswordRequest
     {
         public required string Email { get; set; }
     }

@@ -4,6 +4,7 @@ namespace Application.EWS.Interfaces
 {
     public interface ITokenService
     {
-        string GenerateToken(User user);
+        string GenerateAccessToken(User user);
+        string GenerateRefreshToken();
     }
 }

@@ -12,6 +12,7 @@ namespace Shared.EWS.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
+        public DbSet<UserToken> UserTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,7 +37,10 @@ namespace Shared.EWS.Data
                 b.Property(x => x.Email).HasColumnName("user_email").IsRequired();
                 b.HasIndex(x => x.Email).IsUnique();
                 b.Property(x => x.PasswordHash).HasColumnName("password_hash").IsRequired();
-                b.Property(x => x.MobileNumber).IsRequired();
+                b.Property(x => x.MobileNumber).HasColumnName("mobile_number").IsRequired();
+                b.Property(x => x.status).HasColumnName("status");
+                b.Property(x => x.PasswordResetToken).HasColumnName("password_reset_token");
+                b.Property(x => x.PasswordResetTokenExpiry).HasColumnName("password_reset_token_expiry");
                 b.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -48,9 +52,28 @@ namespace Shared.EWS.Data
                 b.Property(x => x.Name).HasColumnName("role_name").IsRequired();
                 b.HasData(
                     new Role { Id = 1, Name = "Admin" },
-                    new Role { Id = 2, Name = "Team Lead" } ,
+                    new Role { Id = 2, Name = "Team Lead" },
                     new Role { Id = 3, Name = "Employee" }
                 );
+            });
+
+            modelBuilder.Entity<UserToken>(b =>
+            {
+                b.ToTable("user_tokens");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("id");
+                b.Property(x => x.UserId).HasColumnName("user_id");
+                b.Property(x => x.AccessToken).HasColumnName("access_token").IsRequired();
+                b.Property(x => x.RefreshToken).HasColumnName("refresh_token").IsRequired();
+                b.Property(x => x.AccessTokenExpiresAt).HasColumnName("access_token_expires_at");
+                b.Property(x => x.RefreshTokenExpiresAt).HasColumnName("refresh_token_expires_at");
+                b.Property(x => x.IsRevoked).HasColumnName("is_revoked");
+                b.HasIndex(x => x.AccessToken);
+                b.HasIndex(x => x.RefreshToken);
+                b.HasOne(x => x.User)
+                 .WithMany(u => u.Tokens)
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
