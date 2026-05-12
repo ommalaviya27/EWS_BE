@@ -29,14 +29,14 @@ namespace Api.EWS.Middleware
             var (statusCode, message) = exception switch
             {
                 InvalidCredentialsException e => (HttpStatusCode.Unauthorized, e.Message),
-                AccountInactiveException    e => (HttpStatusCode.Forbidden, e.Message),
-                TokenException              e => (HttpStatusCode.Unauthorized, e.Message),
-                ResetTokenException         e => (HttpStatusCode.BadRequest, e.Message),
-                DuplicateRecordException    e => (HttpStatusCode.Conflict, e.Message),
-                NotFoundException           e => (HttpStatusCode.NotFound, e.Message),
-                KeyNotFoundException        e => (HttpStatusCode.NotFound, e.Message),
+                AccountInactiveException e => (HttpStatusCode.Forbidden, e.Message),
+                TokenException e => (HttpStatusCode.Unauthorized, e.Message),
+                ResetTokenException e => (HttpStatusCode.BadRequest, e.Message),
+                DuplicateRecordException e => (HttpStatusCode.Conflict, e.Message),
+                NotFoundException e => (HttpStatusCode.NotFound, e.Message),
+                KeyNotFoundException e => (HttpStatusCode.NotFound, e.Message),
                 UnauthorizedAccessException e => (HttpStatusCode.Unauthorized, e.Message),
-                InvalidOperationException   e => (HttpStatusCode.BadRequest, e.Message),
+                InvalidOperationException e => (HttpStatusCode.BadRequest, e.Message),
                 _                            => (HttpStatusCode.InternalServerError,
                                                  "An unexpected error occurred. Please try again.")
             };
@@ -45,7 +45,11 @@ namespace Api.EWS.Middleware
             context.Response.StatusCode  = (int)statusCode;
 
             var body = JsonSerializer.Serialize(
-                ResponseHelper.FailedResponse<object>(null, message, statusCode),
+                ResponseHelper.FailedResponse<object>(
+                    null,
+                    message,
+                    statusCode,
+                    errorMessages: new List<string> { message }),
                 new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
             return context.Response.WriteAsync(body);
