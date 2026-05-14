@@ -6,6 +6,6 @@ namespace Domain.EWS.DataModels.Request.Authentication
         public required string Email { get; set; }
         public required string Password { get; set; }
         public required string MobileNumber { get; set; }
-        public int RoleId { get; set; }
+        public bool Status { get; set; } = true;
     }
 }

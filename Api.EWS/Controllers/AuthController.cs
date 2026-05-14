@@ -13,8 +13,8 @@ namespace Api.EWS.Controllers
         [HttpPost("signup")]
         public async Task<IActionResult> SignUp([FromBody] RegisterRequest request)
         {
-            var response = await authService.RegisterAsync(request);
-            return Ok(ResponseHelper.SuccessResponse(response, "Account created successfully."));
+            var message = await authService.RegisterAsync(request);
+            return Ok(ResponseHelper.SuccessResponse<object>(null, message));
         }
 
         [HttpPost("login")]
