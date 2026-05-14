@@ -26,7 +26,7 @@ namespace Application.EWS.Services
             _emailService = emailService;
         }
 
-        public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
+        public async Task<string> RegisterAsync(RegisterRequest request)
         {
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
                 throw new DuplicateRecordException("An account with this email already exists.");
@@ -37,13 +37,13 @@ namespace Application.EWS.Services
                 Email = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber,
-                RoleId = request.RoleId
+                RoleId = 3 
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return await IssueTokensAsync(user);
+            return "User Registered successfully";
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
