@@ -59,4 +59,14 @@ namespace Shared.EWS.Exceptions
         public NotFoundException(string message)
             : base(message) { }
     }
+
+    /// <summary>Caller is authenticated but not allowed to perform this action.</summary>
+    public class ForbiddenException : Exception
+    {
+        public ForbiddenException()
+            : base("You do not have permission to perform this action.") { }
+
+        public ForbiddenException(string message)
+            : base(message) { }
+    }
 }

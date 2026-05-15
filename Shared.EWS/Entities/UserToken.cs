@@ -9,8 +9,6 @@ namespace Shared.EWS.Entities
         public DateTime AccessTokenExpiresAt { get; set; }
         public DateTime RefreshTokenExpiresAt { get; set; }
         public bool IsRevoked { get; set; } = false;
-
-        // Navigation property
         public User User { get; set; } = null!;
     }
 }

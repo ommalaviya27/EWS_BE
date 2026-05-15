@@ -34,6 +34,7 @@ namespace Api.EWS.Middleware
                 ResetTokenException e => (HttpStatusCode.BadRequest, e.Message),
                 DuplicateRecordException e => (HttpStatusCode.Conflict, e.Message),
                 NotFoundException e => (HttpStatusCode.NotFound, e.Message),
+                ForbiddenException e => (HttpStatusCode.Forbidden, e.Message),
                 KeyNotFoundException e => (HttpStatusCode.NotFound, e.Message),
                 UnauthorizedAccessException e => (HttpStatusCode.Unauthorized, e.Message),
                 InvalidOperationException e => (HttpStatusCode.BadRequest, e.Message),

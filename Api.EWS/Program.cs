@@ -61,6 +61,9 @@ builder.Services.AddControllers();
 // Registered Services
 builder.Services.RegisterServices();
 
+// Registerd Repositories
+builder.Services.RegisterRepositories();
+
 // Database configuration
 builder.Services.AddDbContext<EWSDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -89,7 +92,6 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Global exception middleware — must be first so it catches all pipeline exceptions
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
