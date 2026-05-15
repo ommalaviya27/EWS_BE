@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Entities;
+using Shared.EWS.Enums;
 
 namespace Shared.EWS.Data
 {
@@ -13,6 +14,7 @@ namespace Shared.EWS.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserToken> UserTokens { get; set; }
+        public DbSet<Projects> Projects { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -25,6 +27,7 @@ namespace Shared.EWS.Data
                 {
                     b.Property("CreatedAt").HasColumnName("created_at");
                     b.Property("UpdatedAt").HasColumnName("updated_at");
+                    b.Property("IsDeleted").HasColumnName("is_deleted");
                 });
             }
 
@@ -42,6 +45,7 @@ namespace Shared.EWS.Data
                 b.Property(x => x.PasswordResetToken).HasColumnName("password_reset_token");
                 b.Property(x => x.PasswordResetTokenExpiry).HasColumnName("password_reset_token_expiry");
                 b.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(x => x.RoleId);
             });
 
             modelBuilder.Entity<Role>(b =>
@@ -74,6 +78,23 @@ namespace Shared.EWS.Data
                  .WithMany(u => u.Tokens)
                  .HasForeignKey(x => x.UserId)
                  .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Projects>(b =>
+            {
+                b.ToTable("projects");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("project_id");
+                b.Property(x => x.Name).HasColumnName("project_name").IsRequired();
+                b.Property(x => x.Description).HasColumnName("project_description").IsRequired().HasMaxLength(500);
+                b.Property(x => x.UserId).HasColumnName("team_leader_id").IsRequired();
+                b.Property(x => x.ProjectStatus).HasColumnName("project_status").HasConversion<string>().HasDefaultValue(ProjectStatus.Active);
+                b.Property(x => x.StartDate).HasColumnName("start_date").IsRequired();
+                b.Property(x => x.EndDate).HasColumnName("end_date").IsRequired();
+                b.Property(x => x.CreatedBy).HasColumnName("created_by");
+                b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x=>x.Name);
             });
         }
     }
