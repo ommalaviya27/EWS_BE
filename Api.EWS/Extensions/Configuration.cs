@@ -14,6 +14,7 @@ namespace Api.EWS.Extensions
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IProjectService, ProjectService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ITaskService, TaskService>();
         }
 
         public static void RegisterRepositories(this IServiceCollection services)
