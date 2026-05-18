@@ -15,6 +15,7 @@ namespace Shared.EWS.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserToken> UserTokens { get; set; }
         public DbSet<Projects> Projects { get; set; }
+        public DbSet<ProjectMember> ProjectMembers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +45,7 @@ namespace Shared.EWS.Data
                 b.Property(x => x.status).HasColumnName("status");
                 b.Property(x => x.PasswordResetToken).HasColumnName("password_reset_token");
                 b.Property(x => x.PasswordResetTokenExpiry).HasColumnName("password_reset_token_expiry");
+                b.Property(x => x.TeamLeadId).HasColumnName("team_lead_id");
                 b.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
                 b.HasIndex(x => x.RoleId);
             });
@@ -95,6 +97,27 @@ namespace Shared.EWS.Data
                 b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(x => x.UserId);
                 b.HasIndex(x=>x.Name);
+            });
+
+            modelBuilder.Entity<ProjectMember>(b =>
+            {
+                b.ToTable("project_members");
+                b.HasKey(x => x.ProjectMemberId);
+                b.Property(x => x.ProjectMemberId).HasColumnName("project_member_id").UseIdentityColumn();
+                b.Property(x => x.ProjectId).HasColumnName("project_id").IsRequired();
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.Property(x => x.JoinedAt).HasColumnName("joined_at").IsRequired();
+                b.HasOne(x => x.Project)
+                 .WithMany()
+                 .HasForeignKey(x => x.ProjectId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(x => x.ProjectId);
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
             });
         }
     }

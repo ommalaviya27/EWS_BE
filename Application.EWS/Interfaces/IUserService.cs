@@ -2,14 +2,12 @@ using Domain.EWS.DataModels.Request.User;
 using Domain.EWS.DataModels.Response.User;
 using Shared.EWS.Entities;
 using Shared.EWS.Interfaces;
-using Shared.EWS.DataModel.Response;
-using Shared.EWS.DataModel.Request;
 
 namespace Application.EWS.Interfaces
 {
     public interface IUserService : IGenericService<User>
     {
-        Task<PagedResponse<GetUserResponse>> GetAllUsersAsync(int callerRoleId, PaginationRequest pagination);
+        Task<UserPagedResponse> GetAllUsersAsync(int callerRoleId, UserPaginationRequest pagination);
         Task<GetUserResponse?> GetUserByIdAsync(int id, int callerRoleId);
         Task<GetUserResponse> CreateUserAsync(CreateUserRequest request, int callerRoleId);
         Task<GetUserResponse> UpdateUserAsync(int id, UpdateUserRequest request, int callerRoleId);

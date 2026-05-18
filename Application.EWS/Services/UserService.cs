@@ -3,8 +3,6 @@ using Domain.EWS.DataModels.Request.User;
 using Domain.EWS.DataModels.Response.User;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
-using Shared.EWS.DataModel.Request;
-using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
 using Shared.EWS.Extensions;
@@ -20,29 +18,67 @@ namespace Application.EWS.Services
     {
         private readonly EWSDbContext _context = context;
 
-        public async Task<PagedResponse<GetUserResponse>> GetAllUsersAsync(int callerRoleId, PaginationRequest pagination)
+        public async Task<UserPagedResponse> GetAllUsersAsync(int callerRoleId, UserPaginationRequest pagination)
         {
             ValidateAdmin(callerRoleId, "view");
 
-            var query = _context.Users
+            // Base query: all non-deleted users joined with role and optional team-lead
+            var baseQuery = _context.Users
                 .Where(u => !u.IsDeleted)
                 .Join(_context.Roles,
                     u => u.RoleId,
                     r => r.Id,
-                    (u, r) => new GetUserResponse
+                    (u, r) => new { u, r })
+                .GroupJoin(_context.Users.Where(tl => !tl.IsDeleted),
+                    ur => ur.u.TeamLeadId,
+                    tl => (int?)tl.Id,
+                    (ur, tls) => new { ur.u, ur.r, tls })
+                .SelectMany(
+                    x => x.tls.DefaultIfEmpty(),
+                    (x, tl) => new GetUserResponse
                     {
-                        UserId       = u.Id,
-                        Name         = u.Name,
-                        Email        = u.Email,
-                        MobileNumber = u.MobileNumber,
-                        RoleId       = u.RoleId,
-                        RoleName     = r.Name,
-                        Status       = u.status,
-                        CreatedAt    = u.CreatedAt
+                        UserId = x.u.Id,
+                        Name = x.u.Name,
+                        Email = x.u.Email,
+                        MobileNumber = x.u.MobileNumber,
+                        RoleId = x.u.RoleId,
+                        RoleName = x.r.Name,
+                        TeamLeadId = x.u.TeamLeadId,
+                        TeamLeadName = tl != null ? tl.Name : null,
+                        Status = x.u.status,
                     })
                 .AsNoTracking();
 
-            return await query.ToPagedResponseAsync(pagination);
+            // Compute summary counts (role 3 = Employee) in one round-trip via GroupBy aggregate
+            var counts = await baseQuery
+                .Where(u => u.RoleId == 3)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Assigned = g.Count(u => u.TeamLeadId != null),
+                    Unassigned = g.Count(u => u.TeamLeadId == null),
+                })
+                .FirstOrDefaultAsync();
+
+            var summary = new UserSummary
+            {
+                TotalEmployees = counts?.Total ?? 0,
+                AssignedCount = counts?.Assigned ?? 0,
+                UnassignedCount = counts?.Unassigned ?? 0,
+            };
+
+            // Apply tab filter server-side before paginating
+            var filter = (pagination.Filter ?? "all").ToLowerInvariant();
+            var filteredQuery = filter switch
+            {
+                "assigned" => baseQuery.Where(u => u.RoleId == 3 && u.TeamLeadId != null),
+                "unassigned" => baseQuery.Where(u => u.RoleId == 3 && u.TeamLeadId == null),
+                _ => baseQuery, // "all": admin + team-lead + all employees
+            };
+
+            var paged = await filteredQuery.ToPagedResponseAsync(pagination);
+            return UserPagedResponse.From(paged, summary);
         }
 
         public async Task<GetUserResponse?> GetUserByIdAsync(int id, int callerRoleId)
@@ -54,16 +90,24 @@ namespace Application.EWS.Services
                 .Join(_context.Roles,
                     u => u.RoleId,
                     r => r.Id,
-                    (u, r) => new GetUserResponse
+                    (u, r) => new { u, r })
+                .GroupJoin(_context.Users.Where(tl => !tl.IsDeleted),
+                    ur => ur.u.TeamLeadId,
+                    tl => (int?)tl.Id,
+                    (ur, tls) => new { ur.u, ur.r, tls })
+                .SelectMany(
+                    x => x.tls.DefaultIfEmpty(),
+                    (x, tl) => new GetUserResponse
                     {
-                        UserId       = u.Id,
-                        Name         = u.Name,
-                        Email        = u.Email,
-                        MobileNumber = u.MobileNumber,
-                        RoleId       = u.RoleId,
-                        RoleName     = r.Name,
-                        Status       = u.status,
-                        CreatedAt    = u.CreatedAt
+                        UserId = x.u.Id,
+                        Name = x.u.Name,
+                        Email = x.u.Email,
+                        MobileNumber = x.u.MobileNumber,
+                        RoleId = x.u.RoleId,
+                        RoleName = x.r.Name,
+                        TeamLeadId = x.u.TeamLeadId,
+                        TeamLeadName = tl != null ? tl.Name : null,
+                        Status = x.u.status,
                     })
                 .AsNoTracking()
                 .FirstOrDefaultAsync()
@@ -78,6 +122,9 @@ namespace Application.EWS.Services
 
             await ValidateRoleAsync(request.RoleId);
 
+            if (request.TeamLeadId.HasValue)
+                await ValidateTeamLeadAsync(request.TeamLeadId.Value);
+
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == request.Email && !u.IsDeleted);
 
@@ -86,18 +133,25 @@ namespace Application.EWS.Services
 
             var entity = new User
             {
-                Name         = request.Name.Trim(),
-                Email        = request.Email.Trim().ToLower(),
+                Name = request.Name.Trim(),
+                Email = request.Email.Trim().ToLower(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber.Trim(),
-                RoleId       = request.RoleId,
-                status       = request.Status
+                RoleId = request.RoleId,
+                TeamLeadId = request.TeamLeadId,
+                status = request.Status
             };
 
             var created = await AddAsync(entity);
 
             var role = await _context.Roles.FindAsync(created.RoleId);
-            return MapToResponse(created, role?.Name ?? string.Empty);
+            string? teamLeadName = null;
+            if (created.TeamLeadId.HasValue)
+            {
+                var tl = await _context.Users.FindAsync(created.TeamLeadId.Value);
+                teamLeadName = tl?.Name;
+            }
+            return MapToResponse(created, role?.Name ?? string.Empty, teamLeadName);
         }
 
         public async Task<GetUserResponse> UpdateUserAsync(int id, UpdateUserRequest request, int callerRoleId)
@@ -110,22 +164,32 @@ namespace Application.EWS.Services
 
             await ValidateRoleAsync(request.RoleId);
 
+            if (request.TeamLeadId.HasValue)
+                await ValidateTeamLeadAsync(request.TeamLeadId.Value);
+
             bool emailTaken = await _context.Users
                 .AnyAsync(u => u.Email == request.Email && !u.IsDeleted && u.Id != id);
 
             if (emailTaken)
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
 
-            user.Name         = request.Name.Trim();
-            user.Email        = request.Email.Trim().ToLower();
+            user.Name = request.Name.Trim();
+            user.Email = request.Email.Trim().ToLower();
             user.MobileNumber = request.MobileNumber.Trim();
-            user.RoleId       = request.RoleId;
-            user.status       = request.Status;
+            user.RoleId = request.RoleId;
+            user.TeamLeadId = request.TeamLeadId;
+            user.status = request.Status;
 
             var updated = await UpdateAsync(user);
 
             var role = await _context.Roles.FindAsync(updated.RoleId);
-            return MapToResponse(updated, role?.Name ?? string.Empty);
+            string? teamLeadName = null;
+            if (updated.TeamLeadId.HasValue)
+            {
+                var tl = await _context.Users.FindAsync(updated.TeamLeadId.Value);
+                teamLeadName = tl?.Name;
+            }
+            return MapToResponse(updated, role?.Name ?? string.Empty, teamLeadName);
         }
 
         public async Task<bool> DeleteUserAsync(int id, int callerRoleId)
@@ -146,7 +210,7 @@ namespace Application.EWS.Services
             return await _context.Roles
                 .Select(r => new RoleResponse
                 {
-                    RoleId   = r.Id,
+                    RoleId = r.Id,
                     RoleName = r.Name
                 })
                 .AsNoTracking()
@@ -166,16 +230,25 @@ namespace Application.EWS.Services
                 throw new NotFoundException($"Role with id '{roleId}' was not found.");
         }
 
-        private static GetUserResponse MapToResponse(User u, string roleName) => new()
+        private async Task ValidateTeamLeadAsync(int teamLeadId)
         {
-            UserId       = u.Id,
-            Name         = u.Name,
-            Email        = u.Email,
+            bool isTeamLead = await _context.Users
+                .AnyAsync(u => u.Id == teamLeadId && u.RoleId == 2 && !u.IsDeleted);
+            if (!isTeamLead)
+                throw new NotFoundException($"Team Lead with id '{teamLeadId}' was not found or is not a Team Lead.");
+        }
+
+        private static GetUserResponse MapToResponse(User u, string roleName, string? teamLeadName = null) => new()
+        {
+            UserId = u.Id,
+            Name = u.Name,
+            Email = u.Email,
             MobileNumber = u.MobileNumber,
-            RoleId       = u.RoleId,
-            RoleName     = roleName,
-            Status       = u.status,
-            CreatedAt    = u.CreatedAt
+            RoleId = u.RoleId,
+            RoleName = roleName,
+            TeamLeadId = u.TeamLeadId,
+            TeamLeadName = teamLeadName,
+            Status = u.status,
         };
     }
 }
