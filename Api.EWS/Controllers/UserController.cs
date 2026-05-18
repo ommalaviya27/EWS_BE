@@ -2,7 +2,6 @@ using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.User;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.Helpers;
 using System.Net;
 
@@ -21,7 +20,7 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] PaginationRequest pagination)
+        public async Task<IActionResult> GetAll([FromQuery] UserPaginationRequest pagination)
         {
             var result = await userService.GetAllUsersAsync(GetCallerRoleId(), pagination);
             return Ok(ResponseHelper.SuccessResponse(result, "Users fetched successfully."));
