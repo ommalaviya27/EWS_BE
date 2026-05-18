@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
@@ -16,6 +17,7 @@ namespace Shared.EWS.Data
         public DbSet<UserToken> UserTokens { get; set; }
         public DbSet<Projects> Projects { get; set; }
         public DbSet<ProjectMember> ProjectMembers { get; set; }
+        public DbSet<Tasks> Tasks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -118,6 +120,35 @@ namespace Shared.EWS.Data
                 b.HasIndex(x => x.ProjectId);
                 b.HasIndex(x => x.UserId);
                 b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+            });
+
+            modelBuilder.Entity<Tasks>(b =>
+            {
+                b.ToTable("tasks");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("task_id").UseIdentityColumn();
+                b.Property(x => x.Title).HasColumnName("task_title").HasMaxLength(200).IsRequired();
+                b.Property(x => x.Description).HasColumnName("task_description").HasMaxLength(1000).IsRequired();
+                b.Property(x => x.ProjectId).HasColumnName("project_id").IsRequired();
+                b.Property(x => x.AssignedToUserId).HasColumnName("assigned_to_user_id").IsRequired();
+                b.Property(x => x.AssignedByUserId).HasColumnName("assigned_by_user_id").IsRequired();
+                b.Property(x => x.TaskStatus).HasColumnName("task_status").HasConversion<string>().HasDefaultValue(TaskStatuses.Pending);
+                b.Property(x => x.Priority).HasColumnName("priority").HasConversion<string>().HasDefaultValue(TaskPriority.Medium);
+                b.Property(x => x.DueDate).HasColumnName("due_date").IsRequired();
+                b.HasOne(x => x.Project)
+                 .WithMany()
+                 .HasForeignKey(x => x.ProjectId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.AssignedTo)
+                 .WithMany()
+                 .HasForeignKey(x => x.AssignedToUserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(x => x.AssignedBy)
+                 .WithMany()
+                 .HasForeignKey(x => x.AssignedByUserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => x.ProjectId);
+                b.HasIndex(x => x.AssignedToUserId);
             });
         }
     }
