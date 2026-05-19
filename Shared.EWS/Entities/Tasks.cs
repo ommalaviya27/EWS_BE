@@ -18,5 +18,7 @@ namespace Shared.EWS.Entities
         public Projects? Project { get; set; }
         public User? AssignedTo { get; set; }
         public User? AssignedBy { get; set; }
+        public ICollection<TaskComment> Comments { get; set; } = [];
+        public ICollection<TaskAttachment> Attachments { get; set; } = [];
     }
 }

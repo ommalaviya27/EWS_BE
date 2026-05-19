@@ -16,5 +16,7 @@ namespace Domain.EWS.DataModels.Response.Tasks
         public TaskStatuses TaskStatus { get; set; }
         public TaskPriority Priority { get; set; }
         public DateTime DueDate { get; set; }
+        public List<TaskCommentResponse> Comments { get; set; } = [];
+        public List<TaskAttachmentResponse> Attachments { get; set; } = [];
     }
 }

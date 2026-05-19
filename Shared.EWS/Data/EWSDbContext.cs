@@ -1,4 +1,3 @@
-using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
@@ -18,6 +17,8 @@ namespace Shared.EWS.Data
         public DbSet<Projects> Projects { get; set; }
         public DbSet<ProjectMember> ProjectMembers { get; set; }
         public DbSet<Tasks> Tasks { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<TaskAttachment> TaskAttachments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -149,6 +150,46 @@ namespace Shared.EWS.Data
                  .OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(x => x.ProjectId);
                 b.HasIndex(x => x.AssignedToUserId);
+            });
+
+            modelBuilder.Entity<TaskComment>(b =>
+            {
+                b.ToTable("task_comments");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("task_comment_id").UseIdentityColumn();
+                b.Property(x => x.TaskId).HasColumnName("task_id").IsRequired();
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.Property(x => x.Comment).HasColumnName("comment").HasMaxLength(2000).IsRequired();
+                b.HasOne(x => x.Task)
+                 .WithMany(t => t.Comments)
+                 .HasForeignKey(x => x.TaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => x.TaskId);
+            });
+
+            modelBuilder.Entity<TaskAttachment>(b =>
+            {
+                b.ToTable("task_attachments");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("task_attachment_id").UseIdentityColumn();
+                b.Property(x => x.TaskId).HasColumnName("task_id").IsRequired();
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.Property(x => x.FileName).HasColumnName("file_name").HasMaxLength(255).IsRequired();
+                b.Property(x => x.FileUrl).HasColumnName("file_url").HasMaxLength(500).IsRequired();
+                b.Property(x => x.FileSize).HasColumnName("file_size").IsRequired();
+                b.HasOne(x => x.Task)
+                 .WithMany(t => t.Attachments)
+                 .HasForeignKey(x => x.TaskId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => x.TaskId);
             });
         }
     }
