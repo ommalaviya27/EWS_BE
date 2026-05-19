@@ -18,5 +18,6 @@ namespace Application.EWS.Interfaces
         Task<bool> DeleteTaskAsync(int id, int callerUserId, int callerRoleId);
         Task<IEnumerable<GetUserResponse>> GetTeamMembersAsync(int callerUserId, int callerRoleId);
         Task<IEnumerable<GetProjectResponse>> GetMyProjectsAsync(int callerUserId);
+        Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request, int callerUserId, int callerRoleId);
     }
 }

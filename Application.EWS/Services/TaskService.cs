@@ -3,6 +3,7 @@ using Domain.EWS.DataModels.Request.Tasks;
 using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.DataModels.Response.User;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
 using Shared.EWS.DataModel.Request;
@@ -12,16 +13,19 @@ using Shared.EWS.Enums;
 using Shared.EWS.Exceptions;
 using Shared.EWS.Extensions;
 using Shared.EWS.Interfaces.Repositories;
+using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 
 namespace Application.EWS.Services
 {
     public class TaskService(
         IGenericRepository<Tasks> repository,
-        EWSDbContext context)
+        EWSDbContext context,
+        IFileService fileService)
         : GenericService<Tasks>(repository), ITaskService
     {
         private readonly EWSDbContext _context = context;
+        private readonly IFileService _fileService = fileService;
 
         public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(
             PaginationRequest pagination,
@@ -33,6 +37,8 @@ namespace Application.EWS.Services
                 .Include(t => t.Project)
                 .Include(t => t.AssignedTo)
                 .Include(t => t.AssignedBy)
+                .Include(t => t.Comments).ThenInclude(c => c.User)
+                .Include(t => t.Attachments).ThenInclude(a => a.User)
                 .Where(t => !t.IsDeleted);
 
             if (callerRoleId == 2)
@@ -58,6 +64,8 @@ namespace Application.EWS.Services
                 .Include(t => t.Project)
                 .Include(t => t.AssignedTo)
                 .Include(t => t.AssignedBy)
+                .Include(t => t.Comments).ThenInclude(c => c.User)
+                .Include(t => t.Attachments).ThenInclude(a => a.User)
                 .Where(t => t.Id == id && !t.IsDeleted)
                 .FirstOrDefaultAsync()
                 ?? throw new NotFoundException($"Task with id '{id}' was not found.");
@@ -197,6 +205,34 @@ namespace Application.EWS.Services
                 .ToListAsync();
         }
 
+        public async Task<GetTaskResponse> UpdateTaskStatusAsync(
+            int taskId,
+            UpdateTaskStatusRequest request,
+            int callerUserId,
+            int callerRoleId)
+        {
+            var task = await _context.Tasks
+                .FirstOrDefaultAsync(t => t.Id == taskId && !t.IsDeleted)
+                ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
+
+            if (callerRoleId == 3 && task.AssignedToUserId != callerUserId)
+                throw new ForbiddenException("You can only update the status of tasks assigned to you.");
+
+            if (callerRoleId == 2)
+            {
+                var myProjectIds = await GetTeamLeadProjectIdsAsync(callerUserId);
+                if (!myProjectIds.Contains(task.ProjectId))
+                    throw new ForbiddenException("You do not have access to this task.");
+            }
+
+            task.TaskStatus = request.Status;
+            task.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return await GetTaskByIdAsync(taskId, callerUserId, callerRoleId)
+                   ?? throw new InvalidOperationException("Failed to retrieve updated task.");
+        }
+
         private static void ValidateTeamLeadOrAdmin(int callerRoleId, string action)
         {
             if (callerRoleId != 1 && callerRoleId != 2)
@@ -259,6 +295,38 @@ namespace Application.EWS.Services
             TaskStatus = t.TaskStatus,
             Priority = t.Priority,
             DueDate = t.DueDate,
+            Comments = t.Comments
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.CreatedAt)
+                .Select(MapCommentToResponse)
+                .ToList(),
+            Attachments = t.Attachments
+                .Where(a => !a.IsDeleted)
+                .OrderBy(a => a.CreatedAt)
+                .Select(MapAttachmentToResponse)
+                .ToList()
+        };
+
+        private static TaskCommentResponse MapCommentToResponse(TaskComment c) => new()
+        {
+            Id = c.Id,
+            TaskId = c.TaskId,
+            UserId = c.UserId,
+            UserName = c.User?.Name ?? string.Empty,
+            Comment = c.Comment,
+            CreatedAt = c.CreatedAt
+        };
+
+        private static TaskAttachmentResponse MapAttachmentToResponse(TaskAttachment a) => new()
+        {
+            Id = a.Id,
+            TaskId = a.TaskId,
+            UserId = a.UserId,
+            UserName = a.User?.Name ?? string.Empty,
+            FileName = a.FileName,
+            FileUrl = a.FileUrl,
+            FileSize = a.FileSize,
+            CreatedAt = a.CreatedAt
         };
     }
 }
