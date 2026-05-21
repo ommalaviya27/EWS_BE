@@ -1,6 +1,6 @@
 using Shared.EWS.Enums;
 
-namespace Domain.EWS.DataModels.Request.Tasks
+namespace Domain.EWS.DataModels.Request.MyTasks
 {
     public class UpdateTaskStatusRequest
     {

@@ -205,34 +205,6 @@ namespace Application.EWS.Services
                 .ToListAsync();
         }
 
-        public async Task<GetTaskResponse> UpdateTaskStatusAsync(
-            int taskId,
-            UpdateTaskStatusRequest request,
-            int callerUserId,
-            int callerRoleId)
-        {
-            var task = await _context.Tasks
-                .FirstOrDefaultAsync(t => t.Id == taskId && !t.IsDeleted)
-                ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
-
-            if (callerRoleId == 3 && task.AssignedToUserId != callerUserId)
-                throw new ForbiddenException("You can only update the status of tasks assigned to you.");
-
-            if (callerRoleId == 2)
-            {
-                var myProjectIds = await GetTeamLeadProjectIdsAsync(callerUserId);
-                if (!myProjectIds.Contains(task.ProjectId))
-                    throw new ForbiddenException("You do not have access to this task.");
-            }
-
-            task.TaskStatus = request.Status;
-            task.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return await GetTaskByIdAsync(taskId, callerUserId, callerRoleId)
-                   ?? throw new InvalidOperationException("Failed to retrieve updated task.");
-        }
-
         private static void ValidateTeamLeadOrAdmin(int callerRoleId, string action)
         {
             if (callerRoleId != 1 && callerRoleId != 2)

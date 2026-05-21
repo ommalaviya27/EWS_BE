@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using Shared.EWS.Data;
+using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
 
 namespace Shared.EWS.Services
@@ -8,6 +11,7 @@ namespace Shared.EWS.Services
     public class FileService : IFileService
     {
         private readonly string _baseAttachmentPath;
+        private readonly EWSDbContext _context;
         private const long MaxAttachmentSize = 10 * 1024 * 1024; // 10 MB
 
         private static readonly string[] AllowedAttachmentTypes =
@@ -62,9 +66,20 @@ namespace Shared.EWS.Services
             return TypedResults.File(bytes, contentType, originalName ?? fileName);
         }
 
-        public void DeleteAttachment(string fileName, string subFolder)
+        public async Task DeleteAttachmentAsync(string fileName, string subFolder)
         {
             if (string.IsNullOrWhiteSpace(fileName)) return;
+
+            var attachment = await _context.TaskAttachments
+                .FirstOrDefaultAsync(a => a.FileName == fileName && !a.IsDeleted);
+
+            if (attachment == null)
+                throw new NotFoundException($"Attachment with name '{fileName}' was not found.");
+
+            attachment.IsDeleted = true;
+            attachment.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
 
             var filePath = Path.Combine(_baseAttachmentPath, subFolder, fileName);
             if (File.Exists(filePath))

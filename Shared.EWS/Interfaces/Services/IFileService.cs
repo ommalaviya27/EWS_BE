@@ -9,7 +9,7 @@ namespace Shared.EWS.Interfaces.Services
 
         Task<FileContentHttpResult> GetFileResultAsync(string fileName, string subFolder, string? originalName = null);
         
-        void DeleteAttachment(string fileName, string subFolder);
+        Task DeleteAttachmentAsync(string fileName, string subFolder);
         
         string BaseAttachmentPath { get; }
     }

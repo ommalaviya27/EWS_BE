@@ -1,8 +1,9 @@
 using Application.EWS.Interfaces;
 using Shared.EWS.Entities;
-using Domain.EWS.DataModels.Request.Tasks;
+using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.DataModels.Response.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Shared.EWS.Services;
 using Shared.EWS.Interfaces.Repositories;
 using Shared.EWS.Data;
@@ -24,27 +25,38 @@ namespace Application.EWS.Services
         public async Task<List<GetTaskResponse>> GetMyTasksAsync(int callerUserId, int callerRoleId)
         {
             if (callerRoleId != 3)
-            {
                 throw new UnauthorizedAccessException("Only employees can access their own tasks.");
-            }
 
-            IQueryable<Tasks> query = _context.Tasks
+            var tasks = await _context.Tasks
                 .Include(t => t.Project)
                 .Include(t => t.AssignedBy)
                 .Include(t => t.Comments).ThenInclude(c => c.User)
                 .Include(t => t.Attachments).ThenInclude(a => a.User)
-                .Where(t => t.AssignedToUserId == callerUserId && !t.IsDeleted);
-
-            var tasks = await query.ToListAsync();
+                .Where(t => t.AssignedToUserId == callerUserId && !t.IsDeleted)
+                .ToListAsync();
 
             return tasks.Select(MapToResponse).ToList();
         }
 
-        public async Task<TaskCommentResponse> AddCommentAsync(
-            int taskId,
-            AddTaskCommentRequest request,
-            int callerUserId,
-            int callerRoleId)
+        public async Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request, int callerUserId, int callerRoleId)
+        {
+            var task = await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedBy)
+                .Include(t => t.Comments).ThenInclude(c => c.User)
+                .Include(t => t.Attachments).ThenInclude(a => a.User)
+                .FirstOrDefaultAsync(t => t.Id == taskId && !t.IsDeleted)
+                ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
+
+            await AuthorizeViewAsync(task, callerUserId, callerRoleId);
+
+            task.TaskStatus = request.Status;
+            await _context.SaveChangesAsync();
+
+            return MapToResponse(task);
+        }
+
+        public async Task<TaskCommentResponse> AddCommentAsync(int taskId, AddTaskCommentRequest request, int callerUserId, int callerRoleId)
         {
             var task = await _context.Tasks
                 .AsNoTracking()
@@ -70,10 +82,50 @@ namespace Application.EWS.Services
             return MapCommentToResponse(saved);
         }
 
-        public async Task<IEnumerable<TaskCommentResponse>> GetCommentsAsync(
-            int taskId,
-            int callerUserId,
-            int callerRoleId)
+        public async Task<TaskCommentResponse> UpdateCommentAsync(int commentId, UpdateTaskCommentRequest request, int callerUserId, int callerRoleId)
+        {
+            var comment = await _context.TaskComments
+                .Include(c => c.Task)
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted)
+                ?? throw new NotFoundException($"Comment with id '{commentId}' was not found.");
+
+            if (comment.Task == null)
+                throw new NotFoundException($"Task for comment with id '{commentId}' was not found.");
+
+            await AuthorizeViewAsync(comment.Task, callerUserId, callerRoleId);
+
+            if (comment.UserId != callerUserId)
+                throw new ForbiddenException("You can only edit your own comments.");
+
+            comment.Comment = request.Comment.Trim();
+            await _context.SaveChangesAsync();
+
+            return MapCommentToResponse(comment);
+        }
+
+        public async Task<bool> DeleteCommentAsync(int commentId, int callerUserId, int callerRoleId)
+        {
+            var comment = await _context.TaskComments
+                .Include(c => c.Task)
+                .FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted)
+                ?? throw new NotFoundException($"Comment with id '{commentId}' was not found.");
+
+            if (comment.Task == null)
+                throw new NotFoundException($"Task for comment with id '{commentId}' was not found.");
+
+            await AuthorizeViewAsync(comment.Task, callerUserId, callerRoleId);
+
+            if (comment.UserId != callerUserId)
+                throw new ForbiddenException("You can only delete your own comments.");
+
+            comment.IsDeleted = true;
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<IEnumerable<TaskCommentResponse>> GetCommentsAsync(int taskId, int callerUserId, int callerRoleId)
         {
             var task = await _context.Tasks
                 .AsNoTracking()
@@ -90,11 +142,7 @@ namespace Application.EWS.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<TaskAttachmentResponse>> AddAttachmentsAsync(
-            int taskId,
-            IList<IFormFile> files,
-            int callerUserId,
-            int callerRoleId)
+        public async Task<IEnumerable<TaskAttachmentResponse>> AddAttachmentsAsync(int taskId, IList<IFormFile> files, int callerUserId, int callerRoleId)
         {
             if (files == null || files.Count == 0)
                 throw new ArgumentException("No files provided.");
@@ -112,13 +160,12 @@ namespace Application.EWS.Services
             foreach (var file in files)
             {
                 var storedFileName = await _fileService.SaveAttachmentAsync(file, subFolder);
-
                 attachments.Add(new TaskAttachment
                 {
                     TaskId = taskId,
                     UserId = callerUserId,
                     FileName = file.FileName,
-                    FileUrl = storedFileName, 
+                    FileUrl = storedFileName,
                     FileSize = file.Length
                 });
             }
@@ -133,6 +180,32 @@ namespace Application.EWS.Services
                 .ToListAsync();
 
             return saved.Select(MapAttachmentToResponse);
+        }
+
+        public async Task<bool> DeleteAttachmentAsync(int attachmentId, int callerUserId, int callerRoleId)
+        {
+            var attachment = await _context.TaskAttachments
+                .Include(a => a.Task)
+                .FirstOrDefaultAsync(a => a.Id == attachmentId && !a.IsDeleted)
+                ?? throw new NotFoundException($"Attachment with id '{attachmentId}' was not found.");
+
+            if (attachment.Task == null)
+                throw new NotFoundException($"Task for attachment with id '{attachmentId}' was not found.");
+
+            await AuthorizeViewAsync(attachment.Task, callerUserId, callerRoleId);
+
+            if (attachment.UserId != callerUserId)
+                throw new ForbiddenException("You can only delete your own attachments.");
+
+            attachment.IsDeleted = true;
+            await _context.SaveChangesAsync();
+
+            const string subFolder = "Tasks";
+            var filePath = Path.Combine(_fileService.BaseAttachmentPath, subFolder, attachment.FileUrl);
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+
+            return true;
         }
 
         private static GetTaskResponse MapToResponse(Tasks t) => new()
@@ -190,6 +263,7 @@ namespace Application.EWS.Services
                 .Select(p => p.Id)
                 .ToListAsync();
         }
+
         private async Task AuthorizeViewAsync(Tasks task, int callerUserId, int callerRoleId)
         {
             if (callerRoleId == 1) return;
