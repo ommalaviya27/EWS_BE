@@ -63,12 +63,6 @@ namespace Api.EWS.Controllers
             return Ok(ResponseHelper.SuccessResponse(result, "Projects fetched successfully."));
         }
 
-        [HttpPatch("{id:int}/status")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateTaskStatusRequest request)
-        {
-            var result = await taskService.UpdateTaskStatusAsync(id, request, GetCallerUserId(), GetCallerRoleId());
-            return Ok(ResponseHelper.SuccessResponse(result, "Task status updated successfully."));
-        }
         private int GetCallerUserId()
             => int.TryParse(User.FindFirst("user_id")?.Value, out var uid) ? uid : 0;
 

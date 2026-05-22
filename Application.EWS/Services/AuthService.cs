@@ -116,6 +116,9 @@ namespace Application.EWS.Services
             if (user == null)
                 throw new ResetTokenException();
 
+            if (request.NewPassword != request.ConfirmNewPassword)
+                throw new InvalidOperationException("New password and confirm password do not match.");
+
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.PasswordResetToken = null;
             user.PasswordResetTokenExpiry = null;

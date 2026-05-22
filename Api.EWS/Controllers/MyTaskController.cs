@@ -1,10 +1,8 @@
 using Application.EWS.Interfaces;
-using Domain.EWS.DataModels.Request.Tasks;
+using Domain.EWS.DataModels.Request.MyTasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.Helpers;
-using System.Net;
 
 namespace Api.EWS.Controllers
 {
@@ -21,11 +19,32 @@ namespace Api.EWS.Controllers
             return Ok(ResponseHelper.SuccessResponse(result, "My tasks fetched successfully."));
         }
 
+        [HttpPatch("{id:int}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateTaskStatusRequest request)
+        {
+            var result = await myTaskService.UpdateTaskStatusAsync(id, request, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse(result, "Task status updated successfully."));
+        }
+
         [HttpPost("{id:int}/comments")]
         public async Task<IActionResult> AddComment(int id, [FromBody] AddTaskCommentRequest request)
         {
             var result = await myTaskService.AddCommentAsync(id, request, GetCallerUserId(), GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse(result, "Comment added successfully."));
+        }
+
+        [HttpPut("{commentId:int}/comments")]
+        public async Task<IActionResult> UpdateComment(int commentId, [FromBody] UpdateTaskCommentRequest request)
+        {
+            var result = await myTaskService.UpdateCommentAsync(commentId, request, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse(result, "Comment updated successfully."));
+        }
+
+        [HttpDelete("{commentId:int}/comments")]
+        public async Task<IActionResult> DeleteComment(int commentId)
+        {
+            await myTaskService.DeleteCommentAsync(commentId, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse<object>(null, "Comment deleted successfully."));
         }
 
         [HttpGet("{id:int}/comments")]
@@ -41,6 +60,13 @@ namespace Api.EWS.Controllers
         {
             var result = await myTaskService.AddAttachmentsAsync(id, files, GetCallerUserId(), GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse(result, "Attachments uploaded successfully."));
+        }
+
+        [HttpDelete("{attachmentId:int}/attachments")]
+        public async Task<IActionResult> DeleteAttachment(int attachmentId)
+        {
+            await myTaskService.DeleteAttachmentAsync(attachmentId, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse<object>(null, "Attachment deleted successfully."));
         }
 
         // Helpers
