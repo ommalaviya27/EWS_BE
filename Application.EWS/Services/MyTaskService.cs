@@ -1,6 +1,7 @@
 using Application.EWS.Interfaces;
 using Shared.EWS.Entities;
 using Domain.EWS.DataModels.Request.MyTasks;
+using Domain.EWS.DataModels.Response.MyTasks;
 using Domain.EWS.DataModels.Response.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,54 @@ namespace Application.EWS.Services
     {
         private readonly EWSDbContext _context = context;
         private readonly IFileService _fileService = fileService;
+
+        public async Task<EmployeeDashboardResponse> GetEmployeeDashboardAsync(int callerUserId, int callerRoleId)
+        {
+            if (callerRoleId != 3)
+                throw new UnauthorizedAccessException("Only employees can access their dashboard.");
+
+            var now = DateTime.UtcNow;
+            var weekEnd = now.AddDays(7);
+
+            var tasks = await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedBy)
+                .Include(t => t.Comments).ThenInclude(c => c.User)
+                .Include(t => t.Attachments).ThenInclude(a => a.User)
+                .Where(t => t.AssignedToUserId == callerUserId && !t.IsDeleted)
+                .ToListAsync();
+
+            var assignedTasks = tasks
+                .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed)
+                .ToList();
+
+            var completedTasks = tasks
+                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
+                .ToList();
+
+            var upcomingDeadlines = tasks
+                .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed
+                         && t.DueDate >= now
+                         && t.DueDate <= weekEnd)
+                .OrderBy(t => t.DueDate)
+                .ToList();
+
+            var onHoldTasks = tasks
+                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold)
+                .OrderBy(t => t.DueDate)
+                .ToList();
+
+            return new EmployeeDashboardResponse
+            {
+                AssignedTaskCount = assignedTasks.Count,
+                CompletedTaskCount = completedTasks.Count,
+                UpcomingDeadlineCount = upcomingDeadlines.Count,
+                AssignedTasks = assignedTasks.Select(MapToResponse).ToList(),
+                UpcomingDeadlines = upcomingDeadlines.Select(MapToResponse).ToList(),
+                OnHoldTasks = onHoldTasks.Select(MapToResponse).ToList(),
+                CompletedTasks = completedTasks.Select(MapToResponse).ToList(),
+            };
+        }
 
         public async Task<List<GetTaskResponse>> GetMyTasksAsync(int callerUserId, int callerRoleId)
         {
