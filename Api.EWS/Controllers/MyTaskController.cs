@@ -12,6 +12,13 @@ namespace Api.EWS.Controllers
     public class MyTaskController(IMyTaskService myTaskService) : ControllerBase
     {
         //  Employee (& above) 
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> GetDashboard()
+        {
+            var result = await myTaskService.GetEmployeeDashboardAsync(GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse(result, "Dashboard data fetched successfully."));
+        }
+
         [HttpGet("my-tasks")]
         public async Task<IActionResult> GetMyTasks([FromQuery] Guid? projectId)
         {

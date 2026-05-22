@@ -1,4 +1,5 @@
 using Domain.EWS.DataModels.Request.MyTasks;
+using Domain.EWS.DataModels.Response.MyTasks;
 using Domain.EWS.DataModels.Response.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace Application.EWS.Interfaces
 {
     public interface IMyTaskService : IGenericService<Tasks>
     {
+        Task<EmployeeDashboardResponse> GetEmployeeDashboardAsync(int callerUserId, int callerRoleId);
         Task<List<GetTaskResponse>> GetMyTasksAsync(int callerUserId, int callerRoleId);
         Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request, int callerUserId, int callerRoleId);
         Task<TaskCommentResponse> AddCommentAsync(int taskId, AddTaskCommentRequest request, int callerUserId, int callerRoleId);
