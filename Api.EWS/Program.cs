@@ -5,6 +5,8 @@ using Api.EWS.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using DocumentFormat.OpenXml.InkML;
+using Application.EWS.Profiles;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +62,15 @@ builder.Services.AddControllers();
 
 // Registered Services
 builder.Services.RegisterServices();
+
+// Registered Repositories
+builder.Services.RegisterRepositories();
+
+// Mapper
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<MappingProfile>();
+});
 
 // Registerd Repositories
 builder.Services.RegisterRepositories();

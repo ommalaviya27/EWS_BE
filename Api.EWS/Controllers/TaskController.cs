@@ -14,9 +14,9 @@ namespace Api.EWS.Controllers
     public class TaskController(ITaskService taskService) : ControllerBase
     {
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] PaginationRequest pagination, [FromQuery] Guid? projectId)
+        public async Task<IActionResult> GetAll([FromQuery] TaskSearchRequest request, [FromQuery] Guid? projectId)
         {
-            var result = await taskService.GetAllTasksAsync(pagination, projectId, GetCallerUserId(), GetCallerRoleId());
+            var result = await taskService.GetAllTasksAsync(request, projectId, GetCallerUserId(), GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse(result, "Tasks fetched successfully."));
         }
 

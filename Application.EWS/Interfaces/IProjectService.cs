@@ -1,15 +1,14 @@
 using Domain.EWS.DataModels.Request.Project;
 using Domain.EWS.DataModels.Response.Project;
+using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Interfaces;
-using Shared.EWS.DataModel.Response;
-using Shared.EWS.DataModel.Request;
 
 namespace Application.EWS.Interfaces
 {
     public interface IProjectService : IGenericService<Projects>
     {
-        Task<PagedResponse<GetProjectResponse>> GetAllProjectsAsync(PaginationRequest pagination);
+        Task<PagedResponse<GetProjectResponse>> GetAllProjectsAsync(ProjectSearchRequest request);
         Task<GetProjectResponse?> GetProjectByIdAsync(Guid id);
         Task<GetProjectResponse> CreateProjectAsync(CreateProjectRequest request, int callerRoleId);
         Task<GetProjectResponse> UpdateProjectAsync(Guid id, UpdateProjectRequest request, int callerRoleId);

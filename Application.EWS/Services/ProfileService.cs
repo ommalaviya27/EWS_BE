@@ -1,75 +1,53 @@
+using AutoMapper;
 using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Profile;
 using Domain.EWS.DataModels.Response.Profile;
-using Microsoft.EntityFrameworkCore;
-using Shared.EWS.Data;
+using Domain.EWS.Interface;
 using Shared.EWS.Exceptions;
 
 namespace Application.EWS.Services
 {
-    public class ProfileService(EWSDbContext context) : IProfileService
+    public class ProfileService(
+        IProfileRepository profileRepository,
+        IMapper mapper) : IProfileService
     {
-        private readonly EWSDbContext _context = context;
+        private readonly IProfileRepository _profileRepository = profileRepository;
+        private readonly IMapper _mapper = mapper;
 
         public async Task<GetProfileResponse> GetProfileAsync(int userId)
         {
-            var result = await _context.Users
-                .Where(u => u.Id == userId && !u.IsDeleted)
-                .Join(_context.Roles,
-                    u => u.RoleId,
-                    r => r.Id,
-                    (u, r) => new GetProfileResponse
-                    {
-                        UserId = u.Id,
-                        Name = u.Name,
-                        Email = u.Email,
-                        MobileNumber = u.MobileNumber,
-                        RoleId = u.RoleId,
-                        RoleName = r.Name,
-                    })
-                .AsNoTracking()
-                .FirstOrDefaultAsync()
+            var user = await _profileRepository.GetUserByIdAsync(userId)
                 ?? throw new NotFoundException($"User with id '{userId}' was not found.");
 
-            return result;
+            var roleName = await _profileRepository.GetRoleNameAsync(user.RoleId);
+            var response = _mapper.Map<GetProfileResponse>(user);
+            response.RoleName = roleName ?? string.Empty;
+            return response;
         }
 
         public async Task<GetProfileResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted)
+            var user = await _profileRepository.GetByIdAsync(userId)
                 ?? throw new NotFoundException($"User with id '{userId}' was not found.");
 
-            bool emailTaken = await _context.Users
-                .AnyAsync(u => u.Email == request.Email.Trim().ToLower() && !u.IsDeleted && u.Id != userId);
-
-            if (emailTaken)
+            if (await _profileRepository.EmailTakenAsync(request.Email, userId))
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
 
-            user.Name = request.Name.Trim();
-            user.Email = request.Email.Trim().ToLower();
+            user.Name         = request.Name.Trim();
+            user.Email        = request.Email.Trim().ToLower();
             user.MobileNumber = request.MobileNumber.Trim();
-            user.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await _profileRepository.UpdateProfileAsync(user);
 
-            var role = await _context.Roles.FindAsync(user.RoleId);
-
-            return new GetProfileResponse
-            {
-                UserId = user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                MobileNumber = user.MobileNumber,
-                RoleId = user.RoleId,
-                RoleName = role?.Name ?? string.Empty,
-            };
+            var roleName = await _profileRepository.GetRoleNameAsync(user.RoleId);
+            var response = _mapper.Map<GetProfileResponse>(user);
+            response.RoleName = roleName ?? string.Empty;
+            return response;
         }
 
         public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted)
+            var user = await _profileRepository.GetByIdAsync(userId)
                 ?? throw new NotFoundException($"User with id '{userId}' was not found.");
 
             if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
@@ -79,19 +57,11 @@ namespace Application.EWS.Services
                 throw new InvalidOperationException("New password and confirm password do not match.");
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.UpdatedAt = DateTime.UtcNow;
 
-            var activeTokens = await _context.UserTokens
-                .Where(t => t.UserId == userId && !t.IsRevoked)
-                .ToListAsync();
+            var activeTokens = await _profileRepository.GetActiveTokensByUserAsync(userId);
 
-            foreach (var token in activeTokens)
-            {
-                token.IsRevoked = true;
-                token.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
+            // Single DB round-trip: password update + token revocations together
+            await _profileRepository.ChangePasswordAsync(user, activeTokens);
         }
     }
 }
