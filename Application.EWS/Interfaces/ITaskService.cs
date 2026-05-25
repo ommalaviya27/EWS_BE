@@ -11,7 +11,7 @@ namespace Application.EWS.Interfaces
 {
     public interface ITaskService : IGenericService<Tasks>
     {
-        Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(PaginationRequest pagination, Guid? projectId, int callerUserId, int callerRoleId);
+        Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(TaskSearchRequest request, Guid? projectId, int callerUserId, int callerRoleId);
         Task<GetTaskResponse?> GetTaskByIdAsync(int id, int callerUserId, int callerRoleId);
         Task<GetTaskResponse> CreateTaskAsync(CreateTaskRequest request, int callerUserId, int callerRoleId);
         Task<GetTaskResponse> UpdateTaskAsync(int id, UpdateTaskRequest request, int callerUserId, int callerRoleId);

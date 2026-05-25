@@ -1,77 +1,63 @@
+using AutoMapper;
 using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Tasks;
 using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.DataModels.Response.User;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using Shared.EWS.Data;
+using Domain.EWS.Interface;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
 using Shared.EWS.Exceptions;
-using Shared.EWS.Extensions;
-using Shared.EWS.Interfaces.Repositories;
 using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 
 namespace Application.EWS.Services
 {
     public class TaskService(
-        IGenericRepository<Tasks> repository,
-        EWSDbContext context,
-        IFileService fileService)
+        ITaskRepository repository,
+        IFileService fileService,
+        IMapper mapper)
         : GenericService<Tasks>(repository), ITaskService
     {
-        private readonly EWSDbContext _context = context;
+        private readonly ITaskRepository _taskRepository = repository;
         private readonly IFileService _fileService = fileService;
+        private readonly IMapper _mapper = mapper;
 
         public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(
-            PaginationRequest pagination,
+            TaskSearchRequest request,
             Guid? projectId,
             int callerUserId,
             int callerRoleId)
         {
-            IQueryable<Tasks> query = _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.AssignedTo)
-                .Include(t => t.AssignedBy)
-                .Include(t => t.Comments).ThenInclude(c => c.User)
-                .Include(t => t.Attachments).ThenInclude(a => a.User)
-                .Where(t => !t.IsDeleted);
+            List<Guid>? projectIdFilter = null;
+            int? assignedToFilter = null;
 
             if (callerRoleId == 2)
-            {
-                var myProjectIds = await GetTeamLeadProjectIdsAsync(callerUserId);
-                query = query.Where(t => myProjectIds.Contains(t.ProjectId));
-            }
+                projectIdFilter = await _taskRepository.GetTeamLeadProjectIdsAsync(callerUserId);
             else if (callerRoleId == 3)
+                assignedToFilter = callerUserId;
+
+            var paged = await _taskRepository.GetAllTasksWithDetailsAsync(request, projectId, assignedToFilter, projectIdFilter);
+            var mapped = paged.Items.Select(t => _mapper.Map<GetTaskResponse>(t)).ToList();
+
+            return new PagedResponse<GetTaskResponse>
             {
-                query = query.Where(t => t.AssignedToUserId == callerUserId);
-            }
-
-            if (projectId.HasValue)
-                query = query.Where(t => t.ProjectId == projectId.Value);
-
-            var projected = query.Select(t => MapToResponse(t));
-            return await projected.ToPagedResponseAsync(pagination);
+                Items = mapped,
+                TotalCount = paged.TotalCount,
+                PageNumber = paged.PageNumber,
+                PageSize = paged.PageSize
+            };
         }
 
         public async Task<GetTaskResponse?> GetTaskByIdAsync(int id, int callerUserId, int callerRoleId)
         {
-            var task = await _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.AssignedTo)
-                .Include(t => t.AssignedBy)
-                .Include(t => t.Comments).ThenInclude(c => c.User)
-                .Include(t => t.Attachments).ThenInclude(a => a.User)
-                .Where(t => t.Id == id && !t.IsDeleted)
-                .FirstOrDefaultAsync()
+            var task = await _taskRepository.GetTaskWithDetailsAsync(id)
                 ?? throw new NotFoundException($"Task with id '{id}' was not found.");
 
             await AuthorizeViewAsync(task, callerUserId, callerRoleId);
-            return MapToResponse(task);
+            return _mapper.Map<GetTaskResponse>(task);
         }
 
         public async Task<GetTaskResponse> CreateTaskAsync(
@@ -81,9 +67,7 @@ namespace Application.EWS.Services
         {
             ValidateTeamLeadOrAdmin(callerRoleId, "create");
 
-            var project = await _context.Projects
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == request.ProjectId && !p.IsDeleted)
+            var project = await _taskRepository.GetProjectByIdAsync(request.ProjectId)
                 ?? throw new NotFoundException($"Project with id '{request.ProjectId}' was not found.");
 
             if (callerRoleId == 2 && project.UserId != callerUserId)
@@ -124,9 +108,7 @@ namespace Application.EWS.Services
 
             if (callerRoleId == 2)
             {
-                var project = await _context.Projects
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == task.ProjectId && !p.IsDeleted)
+                var project = await _taskRepository.GetProjectByIdAsync(task.ProjectId)
                     ?? throw new NotFoundException("Associated project not found.");
 
                 if (project.UserId != callerUserId)
@@ -156,9 +138,7 @@ namespace Application.EWS.Services
 
             if (callerRoleId == 2)
             {
-                var project = await _context.Projects
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == task.ProjectId && !p.IsDeleted)
+                var project = await _taskRepository.GetProjectByIdAsync(task.ProjectId)
                     ?? throw new NotFoundException("Associated project not found.");
 
                 if (project.UserId != callerUserId)
@@ -171,38 +151,14 @@ namespace Application.EWS.Services
         public async Task<IEnumerable<GetUserResponse>> GetTeamMembersAsync(int callerUserId, int callerRoleId)
         {
             ValidateTeamLeadOrAdmin(callerRoleId, "view team members for");
-
-            return await _context.Users
-                .Where(u => u.TeamLeadId == callerUserId && u.RoleId == 3 && !u.IsDeleted)
-                .Select(u => new GetUserResponse
-                {
-                    UserId = u.Id,
-                    Name = u.Name,
-                    Email = u.Email,
-                    MobileNumber = u.MobileNumber,
-                    RoleId = u.RoleId,
-                    Status = u.status
-                })
-                .AsNoTracking()
-                .ToListAsync();
+            var users = await _taskRepository.GetTeamMembersAsync(callerUserId);
+            return _mapper.Map<IEnumerable<GetUserResponse>>(users);
         }
 
         public async Task<IEnumerable<GetProjectResponse>> GetMyProjectsAsync(int callerUserId)
         {
-            return await _context.Projects
-                .Where(p => p.UserId == callerUserId && !p.IsDeleted)
-                .Select(p => new GetProjectResponse
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    UserId = p.UserId,
-                    ProjectStatus = p.ProjectStatus,
-                    StartDate = p.StartDate,
-                    EndDate = p.EndDate
-                })
-                .AsNoTracking()
-                .ToListAsync();
+            var projects = await _taskRepository.GetProjectsByUserIdAsync(callerUserId);
+            return _mapper.Map<IEnumerable<GetProjectResponse>>(projects);
         }
 
         private static void ValidateTeamLeadOrAdmin(int callerRoleId, string action)
@@ -211,21 +167,13 @@ namespace Application.EWS.Services
                 throw new ForbiddenException($"Access denied. Only a Team Lead or Admin can {action} a task.");
         }
 
-        private async Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId)
-        {
-            return await _context.Projects
-                .Where(p => p.UserId == teamLeadUserId && !p.IsDeleted)
-                .Select(p => p.Id)
-                .ToListAsync();
-        }
-
         private async Task AuthorizeViewAsync(Tasks task, int callerUserId, int callerRoleId)
         {
             if (callerRoleId == 1) return;
 
             if (callerRoleId == 2)
             {
-                var myProjectIds = await GetTeamLeadProjectIdsAsync(callerUserId);
+                var myProjectIds = await _taskRepository.GetTeamLeadProjectIdsAsync(callerUserId);
                 if (!myProjectIds.Contains(task.ProjectId))
                     throw new ForbiddenException("You do not have access to this task.");
             }
@@ -238,9 +186,7 @@ namespace Application.EWS.Services
 
         private async Task ValidateAssigneeAsync(int assigneeUserId, int callerUserId, int callerRoleId)
         {
-            var assignee = await _context.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == assigneeUserId && !u.IsDeleted)
+            var assignee = await _taskRepository.GetAssigneeAsync(assigneeUserId)
                 ?? throw new NotFoundException($"User with id '{assigneeUserId}' was not found.");
 
             if (!assignee.status)
@@ -252,53 +198,5 @@ namespace Application.EWS.Services
             if (callerRoleId == 2 && assignee.TeamLeadId != callerUserId)
                 throw new ForbiddenException("You can only assign tasks to employees under your team.");
         }
-
-        private static GetTaskResponse MapToResponse(Tasks t) => new()
-        {
-            Id = t.Id,
-            Title = t.Title,
-            Description = t.Description,
-            ProjectId = t.ProjectId,
-            ProjectName = t.Project?.Name ?? string.Empty,
-            AssignedToUserId = t.AssignedToUserId,
-            AssignedToUserName = t.AssignedTo?.Name ?? string.Empty,
-            AssignedByUserId = t.AssignedByUserId,
-            AssignedByUserName = t.AssignedBy?.Name ?? string.Empty,
-            TaskStatus = t.TaskStatus,
-            Priority = t.Priority,
-            DueDate = t.DueDate,
-            Comments = t.Comments
-                .Where(c => !c.IsDeleted)
-                .OrderBy(c => c.CreatedAt)
-                .Select(MapCommentToResponse)
-                .ToList(),
-            Attachments = t.Attachments
-                .Where(a => !a.IsDeleted)
-                .OrderBy(a => a.CreatedAt)
-                .Select(MapAttachmentToResponse)
-                .ToList()
-        };
-
-        private static TaskCommentResponse MapCommentToResponse(TaskComment c) => new()
-        {
-            Id = c.Id,
-            TaskId = c.TaskId,
-            UserId = c.UserId,
-            UserName = c.User?.Name ?? string.Empty,
-            Comment = c.Comment,
-            CreatedAt = c.CreatedAt
-        };
-
-        private static TaskAttachmentResponse MapAttachmentToResponse(TaskAttachment a) => new()
-        {
-            Id = a.Id,
-            TaskId = a.TaskId,
-            UserId = a.UserId,
-            UserName = a.User?.Name ?? string.Empty,
-            FileName = a.FileName,
-            FileUrl = a.FileUrl,
-            FileSize = a.FileSize,
-            CreatedAt = a.CreatedAt
-        };
     }
 }

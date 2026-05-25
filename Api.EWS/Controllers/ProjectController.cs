@@ -2,7 +2,6 @@ using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Project;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.Helpers;
 using System.Net;
 
@@ -14,9 +13,9 @@ namespace Api.EWS.Controllers
     public class ProjectController(IProjectService projectService) : ControllerBase
     {
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] PaginationRequest pagination)
+        public async Task<IActionResult> GetAll([FromQuery] ProjectSearchRequest request)
         {
-            var result = await projectService.GetAllProjectsAsync(pagination);
+            var result = await projectService.GetAllProjectsAsync(request);
             return Ok(ResponseHelper.SuccessResponse(result, "Projects fetched successfully."));
         }
 

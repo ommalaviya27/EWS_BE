@@ -1,55 +1,46 @@
 using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Authentication;
 using Domain.EWS.DataModels.Response.Authentication;
-using Microsoft.EntityFrameworkCore;
+using Domain.EWS.Interface;
 using Microsoft.Extensions.Configuration;
-using Shared.EWS.Data;
 using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
 using System.Security.Cryptography;
 
 namespace Application.EWS.Services
 {
-    public class AuthService : IAuthService
+    public class AuthService(
+        IAuthRepository authRepository,
+        ITokenService tokenService,
+        IConfiguration configuration,
+        IEmailService emailService) : IAuthService
     {
-        private readonly EWSDbContext _context;
-        private readonly ITokenService _tokenService;
-        private readonly IConfiguration _configuration;
-        private readonly IEmailService _emailService;
-
-        public AuthService(EWSDbContext context, ITokenService tokenService,
-            IConfiguration configuration, IEmailService emailService)
-        {
-            _context = context;
-            _tokenService = tokenService;
-            _configuration = configuration;
-            _emailService = emailService;
-        }
+        private readonly IAuthRepository _authRepository = authRepository;
+        private readonly ITokenService _tokenService = tokenService;
+        private readonly IConfiguration _configuration = configuration;
+        private readonly IEmailService _emailService = emailService;
 
         public async Task<string> RegisterAsync(RegisterRequest request)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            if (await _authRepository.EmailExistsAsync(request.Email))
                 throw new DuplicateRecordException("An account with this email already exists.");
 
             var user = new User
             {
-                Name = request.Name,
-                Email = request.Email,
+                Name         = request.Name,
+                Email        = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber,
-                RoleId = 3 
+                RoleId       = 3
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
+            await _authRepository.AddAsync(user);
             return "User Registered successfully";
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email);
+            var user = await _authRepository.GetByEmailAsync(request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 throw new InvalidCredentialsException();
@@ -59,82 +50,53 @@ namespace Application.EWS.Services
 
         public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
         {
-            var storedToken = await _context.UserTokens
-                .Include(t => t.User)
-                .FirstOrDefaultAsync(t =>
-                    t.RefreshToken == request.RefreshToken &&
-                    !t.IsRevoked &&
-                    t.RefreshTokenExpiresAt > DateTime.UtcNow);
+            var storedToken = await _authRepository.GetValidRefreshTokenAsync(request.RefreshToken)
+                ?? throw new TokenException("Invalid or expired refresh token.");
 
-            if (storedToken == null)
-                throw new TokenException("Invalid or expired refresh token.");
-
-            storedToken.IsRevoked = true;
-            storedToken.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            await _authRepository.RevokeTokenAsync(storedToken);
 
             return await IssueTokensAsync(storedToken.User);
         }
 
         public async Task LogoutAsync(string refreshToken)
         {
-            var storedToken = await _context.UserTokens
-                .FirstOrDefaultAsync(t => t.RefreshToken == refreshToken && !t.IsRevoked);
-
+            var storedToken = await _authRepository.GetActiveRefreshTokenAsync(refreshToken);
             if (storedToken != null)
-            {
-                storedToken.IsRevoked = true;
-                storedToken.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-            }
+                await _authRepository.RevokeTokenAsync(storedToken);
         }
 
         public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email);
-
+            var user = await _authRepository.GetByEmailAsync(request.Email);
             if (user == null) return;
 
             var resetToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-            user.PasswordResetToken = resetToken;
+            user.PasswordResetToken       = resetToken;
             user.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
-            user.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
-
+            await _authRepository.UpdateAsync(user);
             await _emailService.SendPasswordResetEmailAsync(user.Email, user.Name, resetToken);
         }
 
         public async Task ResetPasswordAsync(ResetPasswordRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u =>
-                u.PasswordResetToken == request.Token &&
-                u.PasswordResetTokenExpiry > DateTime.UtcNow);
-
-            if (user == null)
-                throw new ResetTokenException();
+            var user = await _authRepository.GetUserByResetTokenAsync(request.Token)
+                ?? throw new ResetTokenException();
 
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new InvalidOperationException("New password and confirm password do not match.");
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.PasswordResetToken = null;
+            user.PasswordHash             = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.PasswordResetToken       = null;
             user.PasswordResetTokenExpiry = null;
-            user.UpdatedAt = DateTime.UtcNow;
 
-            var activeTokens = await _context.UserTokens
-                .Where(t => t.UserId == user.Id && !t.IsRevoked)
-                .ToListAsync();
+            var activeTokens = await _authRepository.GetActiveTokensByUserAsync(user.Id);
 
-            foreach (var token in activeTokens)
-            {
-                token.IsRevoked = true;
-                token.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
+            // Persist password change + token revocations in a single operation
+            await _authRepository.UpdateAsync(user);
+            if (activeTokens.Count > 0)
+                await _authRepository.RevokeAllUserTokensAsync(activeTokens);
         }
 
         private async Task<AuthResponse> IssueTokensAsync(User user)
@@ -148,26 +110,24 @@ namespace Application.EWS.Services
             var accessTokenExpiresAt  = DateTime.UtcNow.AddMinutes(accessExpireMinutes);
             var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(refreshExpireDays);
 
-            _context.UserTokens.Add(new UserToken
+            await _authRepository.AddUserTokenAsync(new UserToken
             {
-                UserId = user.Id,
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                AccessTokenExpiresAt = accessTokenExpiresAt,
+                UserId                = user.Id,
+                AccessToken           = accessToken,
+                RefreshToken          = refreshToken,
+                AccessTokenExpiresAt  = accessTokenExpiresAt,
                 RefreshTokenExpiresAt = refreshTokenExpiresAt
             });
 
-            await _context.SaveChangesAsync();
-
             return new AuthResponse
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
+                AccessToken          = accessToken,
+                RefreshToken         = refreshToken,
                 AccessTokenExpiresAt = accessTokenExpiresAt,
-                UserId = user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                RoleId = user.RoleId
+                UserId               = user.Id,
+                Name                 = user.Name,
+                Email                = user.Email,
+                RoleId               = user.RoleId
             };
         }
     }

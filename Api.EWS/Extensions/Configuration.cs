@@ -1,5 +1,7 @@
 using Application.EWS.Interfaces;
 using Application.EWS.Services;
+using Domain.EWS.Interface;
+using Infrastructure.EWS.Repositories;
 using Shared.EWS.Extensions;
 
 namespace Api.EWS.Extensions
@@ -22,6 +24,12 @@ namespace Api.EWS.Extensions
         public static void RegisterRepositories(this IServiceCollection services)
         {
             services.RegisterSharedRepositories();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IProjectRepository, ProjectRepository>();
+            services.AddScoped<ITaskRepository, TaskRepository>();
+            services.AddScoped<IMyTaskRepository, MyTaskRepository>();
+            services.AddScoped<IAuthRepository, AuthRepository>();
+            services.AddScoped<IProfileRepository, ProfileRepository>();
         }
     }
 }
