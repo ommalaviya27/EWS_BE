@@ -18,11 +18,13 @@ namespace Application.EWS.Services
     public class TaskService(
         ITaskRepository repository,
         IFileService fileService,
+        IProjectRepository projectRepository,
         IMapper mapper)
         : GenericService<Tasks>(repository), ITaskService
     {
         private readonly ITaskRepository _taskRepository = repository;
         private readonly IFileService _fileService = fileService;
+        private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly IMapper _mapper = mapper;
 
         public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(
@@ -159,6 +161,54 @@ namespace Application.EWS.Services
         {
             var projects = await _taskRepository.GetProjectsByUserIdAsync(callerUserId);
             return _mapper.Map<IEnumerable<GetProjectResponse>>(projects);
+        }
+
+        public async Task<TeamLeadDashboardResponse> GetTeamLeadDashboardAsync(
+            int callerUserId, int callerRoleId, int pageNumber, int pageSize)
+        {
+            if (callerRoleId != 2)
+                throw new ForbiddenException("Only Team Leads can access the team lead dashboard.");
+
+            var allTeamTasks = await _taskRepository.GetAllTeamTasksAsync(callerUserId);
+
+            var myTeamTaskCount = allTeamTasks.Count;
+            var now = DateTime.UtcNow;
+            var overdueTaskCount = allTeamTasks
+                .Count(t => t.DueDate < now && t.TaskStatus != TaskStatuses.Completed);
+
+            var myProjects = (await _taskRepository.GetProjectsByUserIdAsync(callerUserId)).ToList();
+
+            var activeProjects = myProjects
+                .Where(p => p.ProjectStatus == ProjectStatus.Active)
+                .ToList();
+
+            var activeProjectCount = activeProjects.Count;
+
+            var activeProjectCards = activeProjects
+                .Take(3)
+                .Select(p => _mapper.Map<GetProjectResponse>(p))
+                .ToList();
+
+            var myProjectsMapped = myProjects
+                .Select(p => _mapper.Map<GetProjectResponse>(p))
+                .ToList();
+
+            var (pagedItems, totalCount) = await _taskRepository
+                .GetRecentTeamTasksPagedAsync(callerUserId, pageNumber, pageSize);
+
+            var overdueTasks = await _taskRepository.GetOverdueTeamTasksAsync(callerUserId, 5);
+
+            return new TeamLeadDashboardResponse
+            {
+                MyTeamTaskCount = myTeamTaskCount,
+                OverdueTaskCount = overdueTaskCount,
+                ActiveProjectCount = activeProjectCount,
+                ActiveProjects = activeProjectCards,
+                MyProjects = myProjectsMapped,
+                RecentTeamTasks = _mapper.Map<List<GetTaskResponse>>(pagedItems),
+                RecentTeamTasksTotalCount = totalCount,
+                OverdueTasks = _mapper.Map<List<GetTaskResponse>>(overdueTasks),
+            };
         }
 
         private static void ValidateTeamLeadOrAdmin(int callerRoleId, string action)

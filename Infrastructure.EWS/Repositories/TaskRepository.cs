@@ -5,6 +5,7 @@ using Shared.EWS.Data;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
+using Shared.EWS.Enums;
 using Shared.EWS.Extensions;
 
 namespace Infrastructure.EWS.Repositories
@@ -36,12 +37,9 @@ namespace Infrastructure.EWS.Repositories
             if (projectId.HasValue)
                 query = query.Where(t => t.ProjectId == projectId.Value);
 
-                var search = request.Search?.Trim();
+            var search = request.Search?.Trim();
             if (!string.IsNullOrEmpty(search))
-            {
-                query = query.Where(t =>
-                    EF.Functions.Like(t.Title, $"%{search}%"));
-            }
+                query = query.Where(t => EF.Functions.Like(t.Title, $"%{search}%"));
 
             return await query.ToPagedResponseAsync(request);
         }
@@ -82,5 +80,57 @@ namespace Infrastructure.EWS.Repositories
                 .Where(p => p.UserId == userId && !p.IsDeleted)
                 .AsNoTracking()
                 .ToListAsync();
+
+        public async Task<List<Tasks>> GetAllTeamTasksAsync(int teamLeadUserId)
+        {
+            var projectIds = await GetTeamLeadProjectIdsAsync(teamLeadUserId);
+
+            return await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedTo)
+                .Where(t => projectIds.Contains(t.ProjectId) && !t.IsDeleted)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<(List<Tasks> Items, int TotalCount)> GetRecentTeamTasksPagedAsync(
+            int teamLeadUserId, int pageNumber, int pageSize)
+        {
+            var projectIds = await GetTeamLeadProjectIdsAsync(teamLeadUserId);
+
+            var query = _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedTo)
+                .Where(t => projectIds.Contains(t.ProjectId) && !t.IsDeleted)
+                .OrderByDescending(t => t.CreatedAt)
+                .AsNoTracking();
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
+        public async Task<List<Tasks>> GetOverdueTeamTasksAsync(int teamLeadUserId, int take = 5)
+        {
+            var projectIds = await GetTeamLeadProjectIdsAsync(teamLeadUserId);
+            var now        = DateTime.UtcNow;
+
+            return await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedTo)
+                .Where(t => projectIds.Contains(t.ProjectId)
+                         && !t.IsDeleted
+                         && t.DueDate < now
+                         && t.TaskStatus != TaskStatuses.Completed)
+                .OrderBy(t => t.DueDate)
+                .Take(take)
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }
