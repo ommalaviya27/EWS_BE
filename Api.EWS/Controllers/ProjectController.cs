@@ -1,5 +1,6 @@
 using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Project;
+using Domain.EWS.DataModels.Request.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shared.EWS.Helpers;
@@ -10,7 +11,7 @@ namespace Api.EWS.Controllers
     [Authorize]
     [ApiController]
     [Route("api/projects")]
-    public class ProjectController(IProjectService projectService) : ControllerBase
+    public class ProjectController(IProjectService projectService, ITaskService taskService) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] ProjectSearchRequest request)
@@ -24,6 +25,13 @@ namespace Api.EWS.Controllers
         {
             var result = await projectService.GetProjectByIdAsync(id);
             return Ok(ResponseHelper.SuccessResponse(result, "Project fetched successfully."));
+        }
+
+        [HttpGet("{id:guid}/tasks")]
+        public async Task<IActionResult> GetProjectTasks( Guid id, [FromQuery] TaskSearchRequest request)
+        {
+            var result = await taskService.GetAllTasksAsync(request, id, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse(result, "Project tasks fetched successfully."));
         }
 
         [HttpGet("team-leaders")]
@@ -54,6 +62,9 @@ namespace Api.EWS.Controllers
             await projectService.DeleteProjectAsync(id, GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse<object>(null, "Project deleted successfully."));
         }
+
+        private int GetCallerUserId()
+            => int.TryParse(User.FindFirst("user_id")?.Value, out var uid) ? uid : 0;
 
         private int GetCallerRoleId()
             => int.TryParse(User.FindFirst("role_id")?.Value, out var roleId) ? roleId : 0;

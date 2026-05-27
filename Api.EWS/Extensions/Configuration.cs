@@ -19,6 +19,7 @@ namespace Api.EWS.Extensions
             services.AddScoped<ITaskService, TaskService>();
             services.AddScoped<IMyTaskService, MyTaskService>();
             services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         }
 
         public static void RegisterRepositories(this IServiceCollection services)
@@ -30,6 +31,7 @@ namespace Api.EWS.Extensions
             services.AddScoped<IMyTaskRepository, MyTaskRepository>();
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IProfileRepository, ProfileRepository>();
+            services.AddScoped<IAdminDashboardRepository, AdminDashboardRepository>();
         }
     }
 }
