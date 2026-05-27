@@ -1,3 +1,5 @@
+using Shared.EWS.DataModel.Request;
+using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
 using Shared.EWS.Interfaces.Repositories;
@@ -11,15 +13,14 @@ namespace Domain.EWS.Interface
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status);
 
-        // Comments
         Task<TaskComment?> GetCommentWithDetailsAsync(int commentId);
-        Task<List<TaskComment>> GetCommentsByTaskAsync(int taskId);
+        Task<PagedResponse<TaskComment>> GetCommentsByTaskPagedAsync(int taskId, PaginationRequest pagination);
         Task<TaskComment> AddCommentAsync(TaskComment comment);
         Task<TaskComment> UpdateCommentAsync(TaskComment comment);
         Task<bool> SoftDeleteCommentAsync(int commentId);
 
-        // Attachments
         Task<TaskAttachment?> GetAttachmentWithTaskAsync(int attachmentId);
+        Task<PagedResponse<TaskAttachment>> GetAttachmentsByTaskPagedAsync(int taskId, PaginationRequest pagination);
         Task<List<TaskAttachment>> AddAttachmentsAsync(List<TaskAttachment> attachments);
         Task<bool> SoftDeleteAttachmentAsync(int attachmentId);
     }

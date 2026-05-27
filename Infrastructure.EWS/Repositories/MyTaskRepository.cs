@@ -1,8 +1,11 @@
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
+using Shared.EWS.DataModel.Request;
+using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
+using Shared.EWS.Extensions;
 
 namespace Infrastructure.EWS.Repositories
 {
@@ -13,8 +16,6 @@ namespace Infrastructure.EWS.Repositories
             => await _context.Tasks
                 .Include(t => t.Project)
                 .Include(t => t.AssignedBy)
-                .Include(t => t.Comments).ThenInclude(c => c.User)
-                .Include(t => t.Attachments).ThenInclude(a => a.User)
                 .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
                 .ToListAsync();
 
@@ -22,8 +23,6 @@ namespace Infrastructure.EWS.Repositories
             => await _context.Tasks
                 .Include(t => t.Project)
                 .Include(t => t.AssignedBy)
-                .Include(t => t.Comments).ThenInclude(c => c.User)
-                .Include(t => t.Attachments).ThenInclude(a => a.User)
                 .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
 
         public async Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId)
@@ -35,13 +34,11 @@ namespace Infrastructure.EWS.Repositories
         public async Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status)
         {
             task.TaskStatus = status;
-            task.UpdatedAt  = DateTime.UtcNow;
+            task.UpdatedAt = DateTime.UtcNow;
             _context.Tasks.Update(task);
             await _context.SaveChangesAsync();
             return task;
         }
-
-        // ── Comments ──────────────────────────────────────────────────────────
 
         public async Task<TaskComment?> GetCommentWithDetailsAsync(int commentId)
             => await _context.TaskComments
@@ -49,12 +46,12 @@ namespace Infrastructure.EWS.Repositories
                 .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted);
 
-        public async Task<List<TaskComment>> GetCommentsByTaskAsync(int taskId)
+        public async Task<PagedResponse<TaskComment>> GetCommentsByTaskPagedAsync(int taskId, PaginationRequest pagination)
             => await _context.TaskComments
                 .Include(c => c.User)
                 .Where(c => c.TaskId == taskId && !c.IsDeleted)
                 .OrderBy(c => c.CreatedAt)
-                .ToListAsync();
+                .ToPagedResponseAsync(pagination);
 
         public async Task<TaskComment> AddCommentAsync(TaskComment comment)
         {
@@ -63,7 +60,6 @@ namespace Infrastructure.EWS.Repositories
             _context.TaskComments.Add(comment);
             await _context.SaveChangesAsync();
 
-            // Re-fetch with navigation so service gets full data back
             return await _context.TaskComments
                 .Include(c => c.User)
                 .FirstAsync(c => c.Id == comment.Id);
@@ -88,12 +84,17 @@ namespace Infrastructure.EWS.Repositories
             return true;
         }
 
-        // ── Attachments ───────────────────────────────────────────────────────
-
         public async Task<TaskAttachment?> GetAttachmentWithTaskAsync(int attachmentId)
             => await _context.TaskAttachments
                 .Include(a => a.Task)
                 .FirstOrDefaultAsync(a => a.Id == attachmentId && !a.IsDeleted);
+
+        public async Task<PagedResponse<TaskAttachment>> GetAttachmentsByTaskPagedAsync(int taskId, PaginationRequest pagination)
+            => await _context.TaskAttachments
+                .Include(a => a.User)
+                .Where(a => a.TaskId == taskId && !a.IsDeleted)
+                .OrderBy(a => a.CreatedAt)
+                .ToPagedResponseAsync(pagination);
 
         public async Task<List<TaskAttachment>> AddAttachmentsAsync(List<TaskAttachment> attachments)
         {
