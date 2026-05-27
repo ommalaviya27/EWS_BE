@@ -55,9 +55,9 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet("{id:int}/comments")]
-        public async Task<IActionResult> GetComments(int id)
+        public async Task<IActionResult> GetComments(int id, [FromQuery] GetCommentPaginationRequest pagination)
         {
-            var result = await myTaskService.GetCommentsAsync(id, GetCallerUserId(), GetCallerRoleId());
+            var result = await myTaskService.GetCommentsPagedAsync(id, pagination, GetCallerUserId(), GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse(result, "Comments fetched successfully."));
         }
 
@@ -74,6 +74,20 @@ namespace Api.EWS.Controllers
         {
             await myTaskService.DeleteAttachmentAsync(attachmentId, GetCallerUserId(), GetCallerRoleId());
             return Ok(ResponseHelper.SuccessResponse<object>(null, "Attachment deleted successfully."));
+        }
+
+        [HttpGet("{id:int}/attachments")]
+        public async Task<IActionResult> GetAttachments(int id, [FromQuery] GetAttachmentPaginationRequest pagination)
+        {
+            var result = await myTaskService.GetAttachmentsPagedAsync(id, pagination, GetCallerUserId(), GetCallerRoleId());
+            return Ok(ResponseHelper.SuccessResponse(result, "Attachments fetched successfully."));
+        }
+
+        [HttpGet("attachments/{attachmentId:int}/download")]
+        public async Task<IResult> DownloadAttachment(int attachmentId)
+        {
+            var result = await myTaskService.DownloadAttachmentAsync(attachmentId, GetCallerUserId(), GetCallerRoleId());
+            return result;
         }
 
         // Helpers

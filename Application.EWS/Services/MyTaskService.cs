@@ -5,6 +5,7 @@ using Domain.EWS.DataModels.Response.MyTasks;
 using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.Interface;
 using Microsoft.AspNetCore.Http;
+using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
@@ -27,7 +28,7 @@ namespace Application.EWS.Services
             if (callerRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their dashboard.");
 
-            var now     = DateTime.UtcNow;
+            var now = DateTime.UtcNow;
             var weekEnd = now.AddDays(7);
 
             var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(callerUserId);
@@ -54,13 +55,13 @@ namespace Application.EWS.Services
 
             return new EmployeeDashboardResponse
             {
-                AssignedTaskCount     = assignedTasks.Count,
-                CompletedTaskCount    = completedTasks.Count,
+                AssignedTaskCount = assignedTasks.Count,
+                CompletedTaskCount = completedTasks.Count,
                 UpcomingDeadlineCount = upcomingDeadlines.Count,
-                AssignedTasks         = _mapper.Map<List<GetTaskResponse>>(assignedTasks),
-                UpcomingDeadlines     = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
-                OnHoldTasks           = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
-                CompletedTasks        = _mapper.Map<List<GetTaskResponse>>(completedTasks),
+                AssignedTasks = _mapper.Map<List<GetTaskResponse>>(assignedTasks),
+                UpcomingDeadlines = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
+                OnHoldTasks = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
+                CompletedTasks = _mapper.Map<List<GetTaskResponse>>(completedTasks),
             };
         }
 
@@ -93,8 +94,8 @@ namespace Application.EWS.Services
 
             var comment = new TaskComment
             {
-                TaskId  = taskId,
-                UserId  = callerUserId,
+                TaskId = taskId,
+                UserId = callerUserId,
                 Comment = request.Comment.Trim()
             };
 
@@ -136,15 +137,21 @@ namespace Application.EWS.Services
             return await _myTaskRepository.SoftDeleteCommentAsync(commentId);
         }
 
-        public async Task<IEnumerable<TaskCommentResponse>> GetCommentsAsync(int taskId, int callerUserId, int callerRoleId)
+        public async Task<PagedResponse<TaskCommentResponse>> GetCommentsPagedAsync( int taskId, GetCommentPaginationRequest pagination, int callerUserId, int callerRoleId)
         {
             var task = await _myTaskRepository.GetTaskWithDetailsAsync(taskId)
                 ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
 
             await AuthorizeViewAsync(task, callerUserId, callerRoleId);
 
-            var comments = await _myTaskRepository.GetCommentsByTaskAsync(taskId);
-            return _mapper.Map<IEnumerable<TaskCommentResponse>>(comments);
+            var pagedComments = await _myTaskRepository.GetCommentsByTaskPagedAsync(taskId, pagination);
+
+            var mappedItems = _mapper.Map<IEnumerable<TaskCommentResponse>>(pagedComments.Items);
+            return PagedResponse<TaskCommentResponse>.Create(
+                mappedItems,
+                pagedComments.TotalCount,
+                pagedComments.PageNumber,
+                pagedComments.PageSize);
         }
 
         public async Task<IEnumerable<TaskAttachmentResponse>> AddAttachmentsAsync(int taskId, IList<IFormFile> files, int callerUserId, int callerRoleId)
@@ -165,10 +172,10 @@ namespace Application.EWS.Services
                 var storedFileName = await _fileService.SaveAttachmentAsync(file, subFolder);
                 attachments.Add(new TaskAttachment
                 {
-                    TaskId   = taskId,
-                    UserId   = callerUserId,
+                    TaskId = taskId,
+                    UserId = callerUserId,
                     FileName = file.FileName,
-                    FileUrl  = storedFileName,
+                    FileUrl = storedFileName,
                     FileSize = file.Length
                 });
             }
@@ -198,6 +205,41 @@ namespace Application.EWS.Services
                 File.Delete(filePath);
 
             return true;
+        }
+
+        public async Task<PagedResponse<TaskAttachmentResponse>> GetAttachmentsPagedAsync(
+            int taskId,
+            GetAttachmentPaginationRequest pagination,
+            int callerUserId,
+            int callerRoleId)
+        {
+            var task = await _myTaskRepository.GetTaskWithDetailsAsync(taskId)
+                ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
+
+            await AuthorizeViewAsync(task, callerUserId, callerRoleId);
+
+            var pagedAttachments = await _myTaskRepository.GetAttachmentsByTaskPagedAsync(taskId, pagination);
+
+            var mappedItems = _mapper.Map<IEnumerable<TaskAttachmentResponse>>(pagedAttachments.Items);
+            return PagedResponse<TaskAttachmentResponse>.Create(
+                mappedItems,
+                pagedAttachments.TotalCount,
+                pagedAttachments.PageNumber,
+                pagedAttachments.PageSize);
+        }
+
+        public async Task<Microsoft.AspNetCore.Http.HttpResults.FileContentHttpResult> DownloadAttachmentAsync(
+            int attachmentId, int callerUserId, int callerRoleId)
+        {
+            var attachment = await _myTaskRepository.GetAttachmentWithTaskAsync(attachmentId)
+                ?? throw new NotFoundException($"Attachment with id '{attachmentId}' was not found.");
+
+            if (attachment.Task == null)
+                throw new NotFoundException($"Task for attachment id '{attachmentId}' was not found.");
+
+            await AuthorizeViewAsync(attachment.Task, callerUserId, callerRoleId);
+
+            return await _fileService.GetFileResultAsync(attachment.FileUrl, "Tasks", attachment.FileName);
         }
 
         private async Task AuthorizeViewAsync(Tasks task, int callerUserId, int callerRoleId)
