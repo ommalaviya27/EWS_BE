@@ -11,16 +11,16 @@ namespace Application.EWS.Interfaces
 {
     public interface IMyTaskService : IGenericService<Tasks>
     {
-        Task<EmployeeDashboardResponse> GetEmployeeDashboardAsync(int callerUserId, int callerRoleId);
-        Task<List<GetTaskResponse>> GetMyTasksAsync(int callerUserId, int callerRoleId);
-        Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request, int callerUserId, int callerRoleId);
-        Task<TaskCommentResponse> AddCommentAsync(int taskId, AddTaskCommentRequest request, int callerUserId, int callerRoleId);
-        Task<TaskCommentResponse> UpdateCommentAsync(int commentId, UpdateTaskCommentRequest request, int callerUserId, int callerRoleId);
-        Task<bool> DeleteCommentAsync(int commentId, int callerUserId, int callerRoleId);
-        Task<PagedResponse<TaskCommentResponse>> GetCommentsPagedAsync(int taskId, GetCommentPaginationRequest pagination, int callerUserId, int callerRoleId);
-        Task<IEnumerable<TaskAttachmentResponse>> AddAttachmentsAsync(int taskId, IList<IFormFile> files, int callerUserId, int callerRoleId);
-        Task<bool> DeleteAttachmentAsync(int attachmentId, int callerUserId, int callerRoleId);
-        Task<PagedResponse<TaskAttachmentResponse>> GetAttachmentsPagedAsync(int taskId, GetAttachmentPaginationRequest pagination, int callerUserId, int callerRoleId);
-        Task<FileContentHttpResult> DownloadAttachmentAsync(int attachmentId, int callerUserId, int callerRoleId);
+        Task<EmployeeDashboardResponse> GetEmployeeDashboardAsync();
+        Task<List<GetTaskResponse>> GetMyTasksAsync();
+        Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request);
+        Task<TaskCommentResponse> AddCommentAsync(int taskId, AddTaskCommentRequest request);
+        Task<TaskCommentResponse> UpdateCommentAsync(int commentId, UpdateTaskCommentRequest request);
+        Task<bool> DeleteCommentAsync(int commentId);
+        Task<PagedResponse<TaskCommentResponse>> GetCommentsPagedAsync(int taskId, GetCommentPaginationRequest pagination);
+        Task<IEnumerable<TaskAttachmentResponse>> AddAttachmentsAsync(int taskId, IList<IFormFile> files);
+        Task<bool> DeleteAttachmentAsync(int attachmentId);
+        Task<PagedResponse<TaskAttachmentResponse>> GetAttachmentsPagedAsync(int taskId, GetAttachmentPaginationRequest pagination);
+        Task<FileContentHttpResult> DownloadAttachmentAsync(int attachmentId);
     }
 }

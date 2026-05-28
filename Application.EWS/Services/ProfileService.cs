@@ -3,52 +3,58 @@ using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Profile;
 using Domain.EWS.DataModels.Response.Profile;
 using Domain.EWS.Interface;
+using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
+using Shared.EWS.Services;
+using System.Security.Claims;
 
 namespace Application.EWS.Services
 {
     public class ProfileService(
         IProfileRepository profileRepository,
-        IMapper mapper) : IProfileService
+        IMapper mapper,
+        ClaimsPrincipal principal)
+        : GenericService<User>(profileRepository, principal), IProfileService
     {
-        private readonly IProfileRepository _profileRepository = profileRepository;
         private readonly IMapper _mapper = mapper;
 
-        public async Task<GetProfileResponse> GetProfileAsync(int userId)
-        {
-            var user = await _profileRepository.GetUserByIdAsync(userId)
-                ?? throw new NotFoundException($"User with id '{userId}' was not found.");
+        private IProfileRepository ProfileRepository => (IProfileRepository)_repository;
 
-            var roleName = await _profileRepository.GetRoleNameAsync(user.RoleId);
+        public async Task<GetProfileResponse> GetProfileAsync()
+        {
+            var user = await ProfileRepository.GetUserByIdAsync(CurrentUserId)
+                ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
+
+            var roleName = await ProfileRepository.GetRoleNameAsync(user.RoleId);
             var response = _mapper.Map<GetProfileResponse>(user);
             response.RoleName = roleName ?? string.Empty;
             return response;
         }
 
-        public async Task<GetProfileResponse> UpdateProfileAsync(int userId, UpdateProfileRequest request)
+        public async Task<GetProfileResponse> UpdateProfileAsync(UpdateProfileRequest request)
         {
-            var user = await _profileRepository.GetByIdAsync(userId)
-                ?? throw new NotFoundException($"User with id '{userId}' was not found.");
+            var user = await GetByIdAsync(CurrentUserId)
+                ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
 
-            if (await _profileRepository.EmailTakenAsync(request.Email, userId))
+            if (await ProfileRepository.EmailTakenAsync(request.Email, CurrentUserId))
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
 
             user.Name         = request.Name.Trim();
             user.Email        = request.Email.Trim().ToLower();
             user.MobileNumber = request.MobileNumber.Trim();
 
-            await _profileRepository.UpdateProfileAsync(user);
+            await UpdateAsync(user);
 
-            var roleName = await _profileRepository.GetRoleNameAsync(user.RoleId);
+            var roleName = await ProfileRepository.GetRoleNameAsync(user.RoleId);
             var response = _mapper.Map<GetProfileResponse>(user);
             response.RoleName = roleName ?? string.Empty;
             return response;
         }
 
-        public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
+        public async Task ChangePasswordAsync(ChangePasswordRequest request)
         {
-            var user = await _profileRepository.GetByIdAsync(userId)
-                ?? throw new NotFoundException($"User with id '{userId}' was not found.");
+            var user = await GetByIdAsync(CurrentUserId)
+                ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
 
             if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
                 throw new InvalidCredentialsException("Old password is incorrect.");
@@ -58,10 +64,8 @@ namespace Application.EWS.Services
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
 
-            var activeTokens = await _profileRepository.GetActiveTokensByUserAsync(userId);
-
-            // Single DB round-trip: password update + token revocations together
-            await _profileRepository.ChangePasswordAsync(user, activeTokens);
+            var activeTokens = await ProfileRepository.GetActiveTokensByUserAsync(CurrentUserId);
+            await ProfileRepository.ChangePasswordAsync(user, activeTokens);
         }
     }
 }

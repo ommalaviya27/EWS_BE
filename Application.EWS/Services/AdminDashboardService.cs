@@ -1,20 +1,24 @@
 using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Response.Admin;
 using Domain.EWS.Interface;
+using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
+using Shared.EWS.Services;
+using System.Security.Claims;
 
 namespace Application.EWS.Services
 {
-    public class AdminDashboardService(IAdminDashboardRepository repository) : IAdminDashboardService
+    public class AdminDashboardService(IAdminDashboardRepository repository, ClaimsPrincipal principal)
+        : GenericService<User>(repository, principal), IAdminDashboardService
     {
-        private readonly IAdminDashboardRepository _repository = repository;
+        private IAdminDashboardRepository DashboardRepository => (IAdminDashboardRepository)_repository;
 
-        public async Task<AdminDashboardResponse> GetDashboardAsync(int callerRoleId)
+        public async Task<AdminDashboardResponse> GetDashboardAsync()
         {
-            if (callerRoleId != 1)
+            if (CurrentRoleId != 1)
                 throw new ForbiddenException("Access denied. Only Admin can access the dashboard.");
 
-            return await _repository.GetDashboardAsync();
+            return await DashboardRepository.GetDashboardAsync();
         }
     }
 }

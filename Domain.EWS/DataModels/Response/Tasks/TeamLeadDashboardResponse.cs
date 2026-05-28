@@ -8,7 +8,7 @@ namespace Domain.EWS.DataModels.Response.Tasks
         public int OverdueTaskCount   { get; set; }
         public int ActiveProjectCount { get; set; }
         public List<GetProjectResponse> ActiveProjects { get; set; } = [];
-        public List<GetProjectResponse> MyProjects { get; set; } = [];
+        public List<GetProjectResponse> CompletedProjects { get; set; } = [];
 
         public List<GetTaskResponse> RecentTeamTasks { get; set; } = [];
         public int RecentTeamTasksTotalCount { get; set; }

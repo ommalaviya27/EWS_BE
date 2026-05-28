@@ -10,9 +10,9 @@ namespace Application.EWS.Interfaces
     {
         Task<PagedResponse<GetProjectResponse>> GetAllProjectsAsync(ProjectSearchRequest request);
         Task<GetProjectResponse?> GetProjectByIdAsync(Guid id);
-        Task<GetProjectResponse> CreateProjectAsync(CreateProjectRequest request, int callerRoleId);
-        Task<GetProjectResponse> UpdateProjectAsync(Guid id, UpdateProjectRequest request, int callerRoleId);
-        Task<bool> DeleteProjectAsync(Guid id, int callerRoleId);
+        Task<GetProjectResponse> CreateProjectAsync(CreateProjectRequest request);
+        Task<GetProjectResponse> UpdateProjectAsync(Guid id, UpdateProjectRequest request);
+        Task<bool> DeleteProjectAsync(Guid id);
         Task<IEnumerable<TeamLeaderResponse>> GetTeamLeadersAsync();
     }
 }
