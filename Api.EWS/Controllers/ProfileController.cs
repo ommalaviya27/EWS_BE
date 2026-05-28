@@ -14,27 +14,24 @@ namespace Api.EWS.Controllers
         [HttpGet]
         public async Task<IActionResult> GetProfile()
         {
-            var result = await profileService.GetProfileAsync(GetCallerId());
+            var result = await profileService.GetProfileAsync();
             return Ok(ResponseHelper.SuccessResponse(result, "Profile fetched successfully."));
         }
 
         [HttpPut]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
-            var result = await profileService.UpdateProfileAsync(GetCallerId(), request);
+            var result = await profileService.UpdateProfileAsync(request);
             return Ok(ResponseHelper.SuccessResponse(result, "Profile updated successfully."));
         }
 
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            await profileService.ChangePasswordAsync(GetCallerId(), request);
+            await profileService.ChangePasswordAsync(request);
             return Ok(ResponseHelper.SuccessResponse<object>(
                 null,
                 "Password changed successfully. Please log in again."));
         }
-
-        private int GetCallerId()
-            => int.TryParse(User.FindFirst("user_id")?.Value, out var id) ? id : 0;
     }
 }

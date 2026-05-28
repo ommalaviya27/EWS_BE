@@ -28,9 +28,9 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet("{id:guid}/tasks")]
-        public async Task<IActionResult> GetProjectTasks( Guid id, [FromQuery] TaskSearchRequest request)
+        public async Task<IActionResult> GetProjectTasks(Guid id, [FromQuery] TaskSearchRequest request)
         {
-            var result = await taskService.GetAllTasksAsync(request, id, GetCallerUserId(), GetCallerRoleId());
+            var result = await taskService.GetAllTasksAsync(request, id);
             return Ok(ResponseHelper.SuccessResponse(result, "Project tasks fetched successfully."));
         }
 
@@ -44,7 +44,7 @@ namespace Api.EWS.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateProjectRequest request)
         {
-            var result = await projectService.CreateProjectAsync(request, GetCallerRoleId());
+            var result = await projectService.CreateProjectAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = result.Id },
                 ResponseHelper.SuccessResponse(result, "Project created successfully.", HttpStatusCode.Created));
         }
@@ -52,21 +52,15 @@ namespace Api.EWS.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProjectRequest request)
         {
-            var result = await projectService.UpdateProjectAsync(id, request, GetCallerRoleId());
+            var result = await projectService.UpdateProjectAsync(id, request);
             return Ok(ResponseHelper.SuccessResponse(result, "Project updated successfully."));
         }
 
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await projectService.DeleteProjectAsync(id, GetCallerRoleId());
+            await projectService.DeleteProjectAsync(id);
             return Ok(ResponseHelper.SuccessResponse<object>(null, "Project deleted successfully."));
         }
-
-        private int GetCallerUserId()
-            => int.TryParse(User.FindFirst("user_id")?.Value, out var uid) ? uid : 0;
-
-        private int GetCallerRoleId()
-            => int.TryParse(User.FindFirst("role_id")?.Value, out var roleId) ? roleId : 0;
     }
 }

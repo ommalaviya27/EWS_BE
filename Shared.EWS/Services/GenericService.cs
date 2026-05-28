@@ -1,12 +1,16 @@
+using System.Security.Claims;
+using Shared.EWS.Extensions;
 using Shared.EWS.Interfaces;
 using Shared.EWS.Interfaces.Repositories;
 
 namespace Shared.EWS.Services
 {
-    public class GenericService<TEntity>(IGenericRepository<TEntity> repository) : IGenericService<TEntity>
+    public class GenericService<TEntity>(IGenericRepository<TEntity> repository, ClaimsPrincipal principal) : IGenericService<TEntity>
         where TEntity : class
     {
         protected readonly IGenericRepository<TEntity> _repository = repository;
+        protected int CurrentUserId => principal.GetUserId();
+        protected int CurrentRoleId => principal.GetRoleId();
 
         public virtual Task<TEntity?> GetByIdAsync(object id)
             => _repository.GetByIdAsync(id);

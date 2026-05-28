@@ -51,7 +51,7 @@ namespace Application.EWS.Services
         public async Task SendPasswordResetEmailAsync(string toEmail, string toName, string resetToken)
         {
             var frontendUrl = _configuration["App:FrontendUrl"] ?? "http://localhost:4200";
-            var resetLink = $"{frontendUrl}/reset-password?token={Uri.EscapeDataString(resetToken)}";
+            var resetLink = $"{frontendUrl}/auth/reset-password?token={Uri.EscapeDataString(resetToken)}";
 
             var html = $@"
 <!DOCTYPE html>

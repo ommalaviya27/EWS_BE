@@ -13,11 +13,8 @@ namespace Api.EWS.Controllers
         [HttpGet]
         public async Task<IActionResult> GetDashboard()
         {
-            var result = await adminDashboardService.GetDashboardAsync(GetCallerRoleId());
+            var result = await adminDashboardService.GetDashboardAsync();
             return Ok(ResponseHelper.SuccessResponse(result, "Admin dashboard fetched successfully."));
         }
-
-        private int GetCallerRoleId()
-            => int.TryParse(User.FindFirst("role_id")?.Value, out var roleId) ? roleId : 0;
     }
 }

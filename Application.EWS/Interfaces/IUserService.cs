@@ -7,11 +7,11 @@ namespace Application.EWS.Interfaces
 {
     public interface IUserService : IGenericService<User>
     {
-        Task<UserPagedResponse> GetAllUsersAsync(int callerRoleId, UserPaginationRequest pagination);
-        Task<GetUserResponse?> GetUserByIdAsync(int id, int callerRoleId);
-        Task<GetUserResponse> CreateUserAsync(CreateUserRequest request, int callerRoleId);
-        Task<GetUserResponse> UpdateUserAsync(int id, UpdateUserRequest request, int callerRoleId);
-        Task<bool> DeleteUserAsync(int id, int callerRoleId);
-        Task<IEnumerable<RoleResponse>> GetRolesAsync(int callerRoleId);
+        Task<UserPagedResponse> GetAllUsersAsync(UserPaginationRequest pagination);
+        Task<GetUserResponse?> GetUserByIdAsync(int id);
+        Task<GetUserResponse> CreateUserAsync(CreateUserRequest request);
+        Task<GetUserResponse> UpdateUserAsync(int id, UpdateUserRequest request);
+        Task<bool> DeleteUserAsync(int id);
+        Task<IEnumerable<RoleResponse>> GetRolesAsync();
     }
 }

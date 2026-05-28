@@ -3,17 +3,19 @@ using Domain.EWS.DataModels.Request.Project;
 using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.Interface;
 using Application.EWS.Interfaces;
+using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Exceptions;
 using Shared.EWS.Services;
-using Shared.EWS.DataModel.Response;
+using System.Security.Claims;
 
 namespace Application.EWS.Services
 {
     public class ProjectService(
         IProjectRepository repository,
-        IMapper mapper)
-        : GenericService<Projects>(repository), IProjectService
+        IMapper mapper,
+        ClaimsPrincipal principal)
+        : GenericService<Projects>(repository, principal), IProjectService
     {
         private readonly IProjectRepository _projectRepository = repository;
         private readonly IMapper _mapper = mapper;
@@ -27,9 +29,9 @@ namespace Application.EWS.Services
             return project is null ? null : _mapper.Map<GetProjectResponse>(project);
         }
 
-        public async Task<GetProjectResponse> CreateProjectAsync(CreateProjectRequest request, int callerRoleId)
+        public async Task<GetProjectResponse> CreateProjectAsync(CreateProjectRequest request)
         {
-            ValidateAdmin(callerRoleId, "create");
+            ValidateAdmin("create");
 
             if (request.EndDate <= request.StartDate)
                 throw new InvalidOperationException("End date must be after start date.");
@@ -55,9 +57,9 @@ namespace Application.EWS.Services
             return _mapper.Map<GetProjectResponse>(created);
         }
 
-        public async Task<GetProjectResponse> UpdateProjectAsync(Guid id, UpdateProjectRequest request, int callerRoleId)
+        public async Task<GetProjectResponse> UpdateProjectAsync(Guid id, UpdateProjectRequest request)
         {
-            ValidateAdmin(callerRoleId, "update");
+            ValidateAdmin("update");
 
             if (request.EndDate <= request.StartDate)
                 throw new InvalidOperationException("End date must be after start date.");
@@ -81,9 +83,9 @@ namespace Application.EWS.Services
             return _mapper.Map<GetProjectResponse>(updated);
         }
 
-        public async Task<bool> DeleteProjectAsync(Guid id, int callerRoleId)
+        public async Task<bool> DeleteProjectAsync(Guid id)
         {
-            ValidateAdmin(callerRoleId, "delete");
+            ValidateAdmin("delete");
 
             var project = await GetByIdAsync(id)
                 ?? throw new NotFoundException($"Project with id '{id}' was not found.");
@@ -94,9 +96,9 @@ namespace Application.EWS.Services
         public async Task<IEnumerable<TeamLeaderResponse>> GetTeamLeadersAsync()
             => await _projectRepository.GetTeamLeadersAsync();
 
-        private static void ValidateAdmin(int callerRoleId, string action)
+        private void ValidateAdmin(string action)
         {
-            if (callerRoleId != 1)
+            if (CurrentRoleId != 1)
                 throw new ForbiddenException($"Access denied. Only Admin can {action} a project.");
         }
 

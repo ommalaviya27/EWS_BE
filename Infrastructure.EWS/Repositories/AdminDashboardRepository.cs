@@ -4,13 +4,14 @@ using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
+using Shared.EWS.Entities;
 using Shared.EWS.Enums;
 
 namespace Infrastructure.EWS.Repositories
 {
-    public class AdminDashboardRepository(EWSDbContext context) : IAdminDashboardRepository
+    public class AdminDashboardRepository(EWSDbContext context)
+        : GenericRepository<User>(context), IAdminDashboardRepository
     {
-        private readonly EWSDbContext _context = context;
         private const int DashboardListSize = 5;
 
         public async Task<AdminDashboardResponse> GetDashboardAsync()
@@ -32,8 +33,7 @@ namespace Infrastructure.EWS.Repositories
             var overdueProjects = await _context.Projects
                 .Where(p => !p.IsDeleted
                          && p.EndDate < now
-                         && p.ProjectStatus != ProjectStatus.Completed
-                         && p.ProjectStatus != ProjectStatus.Cancelled)
+                         && p.ProjectStatus != ProjectStatus.Completed)
                 .OrderBy(p => p.EndDate)
                 .Take(DashboardListSize)
                 .Select(p => new GetProjectResponse
