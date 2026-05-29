@@ -43,7 +43,7 @@ namespace Infrastructure.EWS.Repositories
             if (!string.IsNullOrEmpty(search))
             {
                 baseQuery = baseQuery.Where(u =>
-                    EF.Functions.Like(u.Name, $"%{search}%"));
+                    EF.Functions.ILike(u.Name, $"%{search}%"));
             }
 
             var counts = await baseQuery

@@ -18,10 +18,17 @@ namespace Api.EWS.Controllers
             return Ok(ResponseHelper.SuccessResponse(result, "Dashboard data fetched successfully."));
         }
 
+        [HttpGet("my-projects")]
+        public async Task<IActionResult> GetMyProjects()
+        {
+            var result = await myTaskService.GetMyProjectsAsync();
+            return Ok(ResponseHelper.SuccessResponse(result, "My projects fetched successfully."));
+        }
+
         [HttpGet("my-tasks")]
         public async Task<IActionResult> GetMyTasks([FromQuery] Guid? projectId)
         {
-            var result = await myTaskService.GetMyTasksAsync();
+            var result = await myTaskService.GetMyTasksAsync(projectId);
             return Ok(ResponseHelper.SuccessResponse(result, "My tasks fetched successfully."));
         }
 

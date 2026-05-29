@@ -67,12 +67,43 @@ namespace Application.EWS.Services
             };
         }
 
-        public async Task<List<GetTaskResponse>> GetMyTasksAsync()
+        public async Task<List<MyProjectResponse>> GetMyProjectsAsync()
+        {
+            if (CurrentRoleId != 3)
+                throw new UnauthorizedAccessException("Only employees can access their project list.");
+
+            var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
+
+            var seen = new HashSet<Guid>();
+            var projects = new List<MyProjectResponse>();
+
+            foreach (var t in tasks)
+            {
+                if (t.Project == null || !seen.Add(t.ProjectId)) continue;
+                projects.Add(new MyProjectResponse
+                {
+                    Id            = t.Project.Id,
+                    Name          = t.Project.Name,
+                    Description   = t.Project.Description,
+                    ProjectStatus = (int?)t.Project.ProjectStatus,
+                    StartDate     = t.Project.StartDate,
+                    EndDate       = t.Project.EndDate,
+                });
+            }
+
+            return projects;
+        }
+
+        public async Task<List<GetTaskResponse>> GetMyTasksAsync(Guid? projectId = null)
         {
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their own tasks.");
 
             var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
+
+            if (projectId.HasValue)
+                tasks = tasks.Where(t => t.ProjectId == projectId.Value).ToList();
+
             return _mapper.Map<List<GetTaskResponse>>(tasks);
         }
 

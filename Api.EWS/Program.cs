@@ -5,26 +5,19 @@ using Api.EWS.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using DocumentFormat.OpenXml.InkML;
 using Application.EWS.Profiles;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Cors
-var allowedOrigins = builder.Configuration
-    .GetSection("AllowedOrigins")
-    .Get<string[]>()
-    ?? new[] { "http://localhost:4200" };
- 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("EWSCorsPolicy", policy =>
-    {
-        policy.WithOrigins(allowedOrigins)
+        policy.WithOrigins(
+                builder.Configuration["App:FrontendUrl"] ?? "http://localhost:4200")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
-    });
+              .AllowCredentials());
 });
 
 // Swagger/OpenAPI configuration
@@ -39,7 +32,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Enter your access token here. Example: Bearer eyJhbGci..."
+        Description = "Enter your access token here. Example: eyJhbGci..."
     });
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {

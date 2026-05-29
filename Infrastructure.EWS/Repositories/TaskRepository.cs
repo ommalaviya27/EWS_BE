@@ -39,7 +39,7 @@ namespace Infrastructure.EWS.Repositories
 
             var search = request.Search?.Trim();
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(t => EF.Functions.Like(t.Title, $"%{search}%"));
+                query = query.Where(t => EF.Functions.ILike(t.Title, $"%{search}%"));
 
             return await query.ToPagedResponseAsync(request);
         }
