@@ -46,6 +46,16 @@ namespace Infrastructure.EWS.Repositories
                     EF.Functions.ILike(u.Name, $"%{search}%"));
             }
 
+            if (pagination.RoleId.HasValue)
+            {
+                baseQuery = baseQuery.Where(u => u.RoleId == pagination.RoleId.Value);
+            }
+
+            if (pagination.Status.HasValue)
+            {
+                baseQuery = baseQuery.Where(u => u.Status == pagination.Status.Value);
+            }
+
             var counts = await baseQuery
                 .Where(u => u.RoleId == 3)
                 .GroupBy(_ => 1)

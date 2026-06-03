@@ -41,6 +41,18 @@ namespace Infrastructure.EWS.Repositories
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(t => EF.Functions.ILike(t.Title, $"%{search}%"));
 
+            if (request.Status.HasValue)
+                query = query.Where(t => t.TaskStatus == request.Status.Value);
+
+            if (request.Priority.HasValue)
+                query = query.Where(t => t.Priority == request.Priority.Value);
+
+            if (request.DueDateFrom.HasValue)
+                query = query.Where(t => t.DueDate >= request.DueDateFrom.Value.ToUniversalTime());
+
+            if (request.DueDateTo.HasValue)
+                query = query.Where(t => t.DueDate <= request.DueDateTo.Value.ToUniversalTime().AddDays(1).AddSeconds(-1));
+
             return await query.ToPagedResponseAsync(request);
         }
 

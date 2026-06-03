@@ -35,6 +35,26 @@ namespace Infrastructure.EWS.Repositories
                     EF.Functions.ILike(p.Name, $"%{search}%"));
             }
 
+            if (request.ProjectStatus.HasValue)
+            {
+                query = query.Where(p => p.ProjectStatus == request.ProjectStatus.Value);
+            }
+
+            if (request.TeamLeadId.HasValue)
+            {
+                query = query.Where(p => p.UserId == request.TeamLeadId.Value);
+            }
+
+            if (request.StartDateFrom.HasValue)
+            {
+                query = query.Where(p => p.StartDate >= request.StartDateFrom.Value.ToUniversalTime());
+            }
+
+            if (request.EndDateTo.HasValue)
+            {
+                query = query.Where(p => p.EndDate <= request.EndDateTo.Value.ToUniversalTime().AddDays(1).AddSeconds(-1));
+            }
+
             return await query.ToPagedResponseAsync(request);
         }
 
@@ -57,7 +77,7 @@ namespace Infrastructure.EWS.Repositories
         public async Task<IEnumerable<TeamLeaderResponse>> GetTeamLeadersAsync()
         {
             return await _context.Users
-                .Where(u => u.RoleId == 2 && !u.IsDeleted)
+                .Where(u => u.RoleId == 2 && !u.IsDeleted && u.status == true)
                 .AsNoTracking()
                 .Select(u => new TeamLeaderResponse
                 {
