@@ -20,11 +20,9 @@ namespace Application.EWS.Services
         public async Task<EmployeePerformanceReportResponse> GetEmployeePerformanceReportAsync(EmployeePerformanceReportRequest request)
         {
             EnsureAdmin();
-
             if (string.IsNullOrWhiteSpace(request.Filter) ||
                 !AllowedFilters.Contains(request.Filter.ToLower()))
                 request.Filter = "monthly";
-
             return await ReportRepository.GetEmployeePerformanceReportAsync(request);
         }
 
@@ -32,6 +30,33 @@ namespace Application.EWS.Services
         {
             EnsureAdmin();
             return await ReportRepository.GetEmployeeSummaryAsync(request);
+        }
+
+        public async Task<TaskCompletionOverviewResponse> GetTaskCompletionOverviewAsync(TaskCompletionReportRequest request)
+        {
+            EnsureAdmin();
+            if (string.IsNullOrWhiteSpace(request.Filter) ||
+                !AllowedFilters.Contains(request.Filter.ToLower()))
+                request.Filter = "monthly";
+            return await ReportRepository.GetTaskCompletionOverviewAsync(request);
+        }
+
+        public async Task<PagedResponse<TaskCompletionSummaryItemResponse>> GetTaskCompletionSummaryAsync(TaskCompletionSummaryRequest request)
+        {
+            EnsureAdmin();
+            return await ReportRepository.GetTaskCompletionSummaryAsync(request);
+        }
+
+        public async Task<ProjectProgressOverviewResponse> GetProjectProgressOverviewAsync()
+        {
+            EnsureAdmin();
+            return await ReportRepository.GetProjectProgressOverviewAsync();
+        }
+
+        public async Task<PagedResponse<ProjectProgressSummaryResponse>> GetProjectProgressSummaryAsync(ProjectProgressRequest request)
+        {
+            EnsureAdmin();
+            return await ReportRepository.GetProjectProgressSummaryAsync(request);
         }
 
         private void EnsureAdmin()
