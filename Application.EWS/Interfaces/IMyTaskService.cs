@@ -1,6 +1,5 @@
 using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.DataModels.Response.MyTasks;
-using Domain.EWS.DataModels.Response.MyTasks;
 using Domain.EWS.DataModels.Response.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;

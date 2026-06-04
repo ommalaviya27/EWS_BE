@@ -36,7 +36,6 @@ namespace Application.EWS.Services
             var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
 
             var assignedTasks = tasks
-                .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed)
                 .ToList();
 
             var completedTasks = tasks
@@ -60,7 +59,6 @@ namespace Application.EWS.Services
                 AssignedTaskCount     = assignedTasks.Count,
                 CompletedTaskCount    = completedTasks.Count,
                 UpcomingDeadlineCount = upcomingDeadlines.Count,
-                AssignedTasks         = _mapper.Map<List<GetTaskResponse>>(assignedTasks),
                 UpcomingDeadlines     = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
                 OnHoldTasks           = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
                 CompletedTasks        = _mapper.Map<List<GetTaskResponse>>(completedTasks),
