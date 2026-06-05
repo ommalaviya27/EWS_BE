@@ -1,3 +1,4 @@
+using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
@@ -12,12 +13,38 @@ namespace Infrastructure.EWS.Repositories
     public class MyTaskRepository(EWSDbContext context)
         : GenericRepository<Tasks>(context), IMyTaskRepository
     {
-        public async Task<List<Tasks>> GetTasksWithDetailsByUserAsync(int userId)
-            => await _context.Tasks
+        public async Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(
+            int userId,
+            MyTaskSearchRequest request,
+            Guid? projectId)
+        {
+            var query = _context.Tasks
                 .Include(t => t.Project)
                 .Include(t => t.AssignedBy)
                 .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (projectId.HasValue)
+                query = query.Where(t => t.ProjectId == projectId.Value);
+
+            var search = request.Search?.Trim();
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(t => EF.Functions.ILike(t.Title, $"%{search}%"));
+
+            if (request.Status.HasValue)
+                query = query.Where(t => t.TaskStatus == request.Status.Value);
+
+            if (request.Priority.HasValue)
+                query = query.Where(t => t.Priority == request.Priority.Value);
+
+            if (request.DueDateFrom.HasValue)
+                query = query.Where(t => t.DueDate >= request.DueDateFrom.Value.ToUniversalTime());
+
+            if (request.DueDateTo.HasValue)
+                query = query.Where(t => t.DueDate <= request.DueDateTo.Value.ToUniversalTime().AddDays(1).AddSeconds(-1));
+
+            return await query.ToPagedResponseAsync(request);
+        }
 
         public async Task<Tasks?> GetTaskWithDetailsAsync(int id)
             => await _context.Tasks

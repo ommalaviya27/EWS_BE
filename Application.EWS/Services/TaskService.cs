@@ -179,7 +179,7 @@ namespace Application.EWS.Services
             var activeProjectCount = activeProjects.Count;
 
             var activeProjectCards = activeProjects
-                .Take(3)
+                .Take(5)
                 .Select(p => _mapper.Map<GetProjectResponse>(p))
                 .ToList();
 
