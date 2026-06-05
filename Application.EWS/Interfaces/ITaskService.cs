@@ -17,6 +17,6 @@ namespace Application.EWS.Interfaces
         Task<bool> DeleteTaskAsync(int id);
         Task<IEnumerable<GetUserResponse>> GetTeamMembersAsync();
         Task<IEnumerable<GetProjectResponse>> GetMyProjectsAsync();
-        Task<TeamLeadDashboardResponse> GetTeamLeadDashboardAsync(int pageNumber, int pageSize);
+        Task<TeamLeadDashboardResponse> GetTeamLeadDashboardAsync();
     }
 }

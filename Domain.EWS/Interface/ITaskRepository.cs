@@ -8,7 +8,6 @@ namespace Domain.EWS.Interface
 {
     public interface ITaskRepository : IGenericRepository<Tasks>
     {
-        // ── Existing ───────────────────────────────────────────────────────────
         Task<PagedResponse<Tasks>> GetAllTasksWithDetailsAsync(TaskSearchRequest request, Guid? projectId, int? assignedToUserId, List<Guid>? projectIdFilter);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<Projects?> GetProjectByIdAsync(Guid projectId);
@@ -20,5 +19,9 @@ namespace Domain.EWS.Interface
         Task<List<Tasks>> GetAllTeamTasksAsync(int teamLeadUserId);
         Task<(List<Tasks> Items, int TotalCount)> GetRecentTeamTasksPagedAsync(int teamLeadUserId, int pageNumber, int pageSize);
         Task<List<Tasks>> GetOverdueTeamTasksAsync(int teamLeadUserId, int take = 5);
+
+        Task<List<(Projects Project, int TaskCount)>> GetActiveProjectsByTaskCountAsync(int teamLeadUserId, int take = 5);
+        Task<List<Projects>> GetRecentlyCompletedProjectsAsync(int teamLeadUserId, int take = 5);
+        Task<List<Tasks>> GetHighPriorityTeamTasksByDueDateAsync(int teamLeadUserId, int take = 5);
     }
 }

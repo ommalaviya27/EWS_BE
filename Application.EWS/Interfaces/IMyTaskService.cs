@@ -13,7 +13,7 @@ namespace Application.EWS.Interfaces
     {
         Task<EmployeeDashboardResponse> GetEmployeeDashboardAsync();
         Task<List<MyProjectResponse>> GetMyProjectsAsync();
-        Task<List<GetTaskResponse>> GetMyTasksAsync(Guid? projectId = null);
+        Task<PagedResponse<GetTaskResponse>> GetMyTasksAsync(MyTaskSearchRequest request, Guid? projectId = null);
         Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request);
         Task<TaskCommentResponse> AddCommentAsync(int taskId, AddTaskCommentRequest request);
         Task<TaskCommentResponse> UpdateCommentAsync(int commentId, UpdateTaskCommentRequest request);

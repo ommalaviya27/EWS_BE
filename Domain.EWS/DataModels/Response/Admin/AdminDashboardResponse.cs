@@ -12,6 +12,6 @@ namespace Domain.EWS.DataModels.Response.Admin
 
         public List<GetProjectResponse> OverdueProjects { get; set; } = [];
         public List<GetProjectResponse> RecentCompletedProjects { get; set; } = [];
-        public List<GetTaskResponse> InProgressTasks { get; set; } = [];
+        public List<GetTaskResponse> OverdueTasks { get; set; } = [];
     }
 }

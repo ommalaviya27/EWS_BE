@@ -31,37 +31,56 @@ namespace Application.EWS.Services
                 throw new UnauthorizedAccessException("Only employees can access their dashboard.");
 
             var now = DateTime.UtcNow;
-            var weekEnd = now.AddDays(7);
+            var fiveDaysEnd = now.AddDays(5);
 
-            var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
+            // Fetch ALL tasks without any pagination constraint
+            var tasks = await _myTaskRepository.GetAllTasksByUserAsync(CurrentUserId);
 
-            var assignedTasks = tasks
-                .ToList();
+            // --- Actual counts from full data ---
+            var assignedTaskCount = tasks.Count;
 
-            var completedTasks = tasks
+            var allCompleted = tasks
                 .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
                 .ToList();
+            var completedTaskCount = allCompleted.Count;
 
-            var upcomingDeadlines = tasks
+            var allUpcoming = tasks
                 .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed
                          && t.DueDate >= now
-                         && t.DueDate <= weekEnd)
+                         && t.DueDate <= fiveDaysEnd)
+                .ToList();
+            var upcomingDeadlineCount = allUpcoming.Count;
+
+            // --- Panel lists: top 5 each ---
+            var upcomingDeadlines = allUpcoming
                 .OrderBy(t => t.DueDate)
+                .Take(5)
                 .ToList();
 
             var onHoldTasks = tasks
-                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold)
+                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold
+                         && t.Project != null
+                         && t.Project.ProjectStatus == Shared.EWS.Enums.ProjectStatus.Active)
                 .OrderBy(t => t.DueDate)
+                .Take(5)
                 .ToList();
+
+            var completedTasks = allCompleted
+                .OrderByDescending(t => t.UpdatedAt)
+                .Take(5)
+                .ToList();
+
+            var overdueTasks = await _myTaskRepository.GetOverdueTasksAsync(CurrentUserId);
 
             return new EmployeeDashboardResponse
             {
-                AssignedTaskCount     = assignedTasks.Count,
-                CompletedTaskCount    = completedTasks.Count,
-                UpcomingDeadlineCount = upcomingDeadlines.Count,
+                AssignedTaskCount     = assignedTaskCount,
+                CompletedTaskCount    = completedTaskCount,
+                UpcomingDeadlineCount = upcomingDeadlineCount,
                 UpcomingDeadlines     = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
                 OnHoldTasks           = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
                 CompletedTasks        = _mapper.Map<List<GetTaskResponse>>(completedTasks),
+                OverdueTasks          = _mapper.Map<List<GetTaskResponse>>(overdueTasks),
             };
         }
 
@@ -70,7 +89,9 @@ namespace Application.EWS.Services
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their project list.");
 
-            var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
+            var allTasksRequest = new MyTaskSearchRequest { PageNumber = 1, PageSize = int.MaxValue };
+            var pagedTasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId, allTasksRequest, null);
+            var tasks = pagedTasks.Items;
 
             var seen = new HashSet<Guid>();
             var projects = new List<MyProjectResponse>();
@@ -92,17 +113,23 @@ namespace Application.EWS.Services
             return projects;
         }
 
-        public async Task<List<GetTaskResponse>> GetMyTasksAsync(Guid? projectId = null)
+        public async Task<PagedResponse<GetTaskResponse>> GetMyTasksAsync(
+            MyTaskSearchRequest request,
+            Guid? projectId = null)
         {
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their own tasks.");
 
-            var tasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId);
+            var paged = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId, request, projectId);
+            var mapped = paged.Items.Select(t => _mapper.Map<GetTaskResponse>(t)).ToList();
 
-            if (projectId.HasValue)
-                tasks = tasks.Where(t => t.ProjectId == projectId.Value).ToList();
-
-            return _mapper.Map<List<GetTaskResponse>>(tasks);
+            return new PagedResponse<GetTaskResponse>
+            {
+                Items      = mapped,
+                TotalCount = paged.TotalCount,
+                PageNumber = paged.PageNumber,
+                PageSize   = paged.PageSize,
+            };
         }
 
         public async Task<GetTaskResponse> UpdateTaskStatusAsync(int taskId, UpdateTaskStatusRequest request)

@@ -63,12 +63,9 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet("team-lead-dashboard")]
-        public async Task<IActionResult> GetTeamLeadDashboard(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize   = 5)
+        public async Task<IActionResult> GetTeamLeadDashboard()
         {
-            pageSize = Math.Clamp(pageSize, 1, 5);
-            var result = await taskService.GetTeamLeadDashboardAsync(pageNumber, pageSize);
+            var result = await taskService.GetTeamLeadDashboardAsync();
             return Ok(ResponseHelper.SuccessResponse(result, "Team lead dashboard data fetched successfully."));
         }
     }

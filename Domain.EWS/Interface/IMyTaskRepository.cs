@@ -1,3 +1,4 @@
+using Domain.EWS.DataModels.Request.MyTasks;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
@@ -8,7 +9,9 @@ namespace Domain.EWS.Interface
 {
     public interface IMyTaskRepository : IGenericRepository<Tasks>
     {
-        Task<List<Tasks>> GetTasksWithDetailsByUserAsync(int userId);
+        Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(int userId, MyTaskSearchRequest request, Guid? projectId);
+        Task<List<Tasks>> GetAllTasksByUserAsync(int userId);
+        Task<List<Tasks>> GetOverdueTasksAsync(int userId);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status);
