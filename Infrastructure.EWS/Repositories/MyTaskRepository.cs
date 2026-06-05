@@ -11,7 +11,7 @@ using Shared.EWS.Extensions;
 namespace Infrastructure.EWS.Repositories
 {
     public class MyTaskRepository(EWSDbContext context)
-        : GenericRepository<Tasks>(context), IMyTaskRepository
+        : GenericRepository<Tasks>(context), IMyTaskRepository  
     {
         public async Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(
             int userId,
@@ -44,6 +44,28 @@ namespace Infrastructure.EWS.Repositories
                 query = query.Where(t => t.DueDate <= request.DueDateTo.Value.ToUniversalTime().AddDays(1).AddSeconds(-1));
 
             return await query.ToPagedResponseAsync(request);
+        }
+
+        public async Task<List<Tasks>> GetAllTasksByUserAsync(int userId)
+            => await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedBy)
+                .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
+                .ToListAsync();
+
+        public async Task<List<Tasks>> GetOverdueTasksAsync(int userId)
+        {
+            var now = DateTime.UtcNow;
+            return await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedBy)
+                .Where(t => t.AssignedToUserId == userId
+                         && !t.IsDeleted
+                         && t.TaskStatus != TaskStatuses.Completed
+                         && t.DueDate < now)
+                .OrderBy(t => t.DueDate)
+                .Take(5)
+                .ToListAsync();
         }
 
         public async Task<Tasks?> GetTaskWithDetailsAsync(int id)

@@ -31,38 +31,56 @@ namespace Application.EWS.Services
                 throw new UnauthorizedAccessException("Only employees can access their dashboard.");
 
             var now = DateTime.UtcNow;
-            var weekEnd = now.AddDays(7);
+            var fiveDaysEnd = now.AddDays(5);
 
-            var allTasksRequest = new MyTaskSearchRequest { PageNumber = 1, PageSize = int.MaxValue };
-            var pagedTasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId, allTasksRequest, null);
-            var tasks = pagedTasks.Items;
+            // Fetch ALL tasks without any pagination constraint
+            var tasks = await _myTaskRepository.GetAllTasksByUserAsync(CurrentUserId);
 
-            var assignedTasks = tasks.ToList();
+            // --- Actual counts from full data ---
+            var assignedTaskCount = tasks.Count;
 
-            var completedTasks = tasks
+            var allCompleted = tasks
                 .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
                 .ToList();
+            var completedTaskCount = allCompleted.Count;
 
-            var upcomingDeadlines = tasks
+            var allUpcoming = tasks
                 .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed
                          && t.DueDate >= now
-                         && t.DueDate <= weekEnd)
+                         && t.DueDate <= fiveDaysEnd)
+                .ToList();
+            var upcomingDeadlineCount = allUpcoming.Count;
+
+            // --- Panel lists: top 5 each ---
+            var upcomingDeadlines = allUpcoming
                 .OrderBy(t => t.DueDate)
+                .Take(5)
                 .ToList();
 
             var onHoldTasks = tasks
-                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold)
+                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold
+                         && t.Project != null
+                         && t.Project.ProjectStatus == Shared.EWS.Enums.ProjectStatus.Active)
                 .OrderBy(t => t.DueDate)
+                .Take(5)
                 .ToList();
+
+            var completedTasks = allCompleted
+                .OrderByDescending(t => t.UpdatedAt)
+                .Take(5)
+                .ToList();
+
+            var overdueTasks = await _myTaskRepository.GetOverdueTasksAsync(CurrentUserId);
 
             return new EmployeeDashboardResponse
             {
-                AssignedTaskCount     = assignedTasks.Count,
-                CompletedTaskCount    = completedTasks.Count,
-                UpcomingDeadlineCount = upcomingDeadlines.Count,
+                AssignedTaskCount     = assignedTaskCount,
+                CompletedTaskCount    = completedTaskCount,
+                UpcomingDeadlineCount = upcomingDeadlineCount,
                 UpcomingDeadlines     = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
                 OnHoldTasks           = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
                 CompletedTasks        = _mapper.Map<List<GetTaskResponse>>(completedTasks),
+                OverdueTasks          = _mapper.Map<List<GetTaskResponse>>(overdueTasks),
             };
         }
 

@@ -11,5 +11,6 @@ namespace Domain.EWS.DataModels.Response.Project
         public ProjectStatus ProjectStatus { get; set; } = ProjectStatus.Active;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; } 
+        public int TaskCount { get; set; }
     }
 }

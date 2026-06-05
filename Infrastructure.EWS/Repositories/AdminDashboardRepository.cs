@@ -38,13 +38,12 @@ namespace Infrastructure.EWS.Repositories
                 .Take(DashboardListSize)
                 .Select(p => new GetProjectResponse
                 {
-                    Id            = p.Id,
-                    Name          = p.Name,
-                    Description   = p.Description,
-                    UserId        = p.UserId,
-                    ProjectStatus = p.ProjectStatus,
-                    StartDate     = p.StartDate,
-                    EndDate       = p.EndDate
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    UserId = p.UserId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate
                 })
                 .AsNoTracking()
                 .ToListAsync();
@@ -55,48 +54,49 @@ namespace Infrastructure.EWS.Repositories
                 .Take(DashboardListSize)
                 .Select(p => new GetProjectResponse
                 {
-                    Id            = p.Id,
-                    Name          = p.Name,
-                    Description   = p.Description,
-                    UserId        = p.UserId,
-                    ProjectStatus = p.ProjectStatus,
-                    StartDate     = p.StartDate,
-                    EndDate       = p.EndDate
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    UserId = p.UserId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate
                 })
                 .AsNoTracking()
                 .ToListAsync();
 
-            var inProgressTasks = await _context.Tasks
-                .Where(t => !t.IsDeleted && t.TaskStatus == TaskStatuses.InProgress)
-                .OrderByDescending(t => t.UpdatedAt)
+            var overdueTasks = await _context.Tasks
+                .Where(t => !t.IsDeleted
+                         && t.DueDate < now
+                         && t.TaskStatus != TaskStatuses.Completed)
+                .OrderBy(t => t.DueDate)
                 .Take(DashboardListSize)
                 .Select(t => new GetTaskResponse
                 {
-                    Id                  = t.Id,
-                    Title               = t.Title,
-                    Description         = t.Description,
-                    ProjectId           = t.ProjectId,
-                    ProjectName         = t.Project != null ? t.Project.Name : string.Empty,
-                    AssignedToUserId    = t.AssignedToUserId,
-                    AssignedToUserName  = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
-                    AssignedByUserId    = t.AssignedByUserId,
-                    AssignedByUserName  = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
-                    TaskStatus          = t.TaskStatus,
-                    Priority            = t.Priority,
-                    DueDate             = t.DueDate
+                    Id = t.Id,
+                    Title = t.Title,
+                    Description = t.Description,
+                    ProjectId = t.ProjectId,
+                    ProjectName = t.Project != null ? t.Project.Name : string.Empty,
+                    AssignedToUserId = t.AssignedToUserId,
+                    AssignedToUserName = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
+                    AssignedByUserId = t.AssignedByUserId,
+                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
+                    TaskStatus = t.TaskStatus,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate
                 })
                 .AsNoTracking()
                 .ToListAsync();
 
             return new AdminDashboardResponse
             {
-                TotalEmployees          = totalEmployees,
-                TotalProjects           = totalProjects,
-                CompletedTasks          = completedTasks,
-                PendingTasks            = pendingTasks,
-                OverdueProjects         = overdueProjects,
+                TotalEmployees = totalEmployees,
+                TotalProjects = totalProjects,
+                CompletedTasks = completedTasks,
+                PendingTasks = pendingTasks,
+                OverdueProjects = overdueProjects,
                 RecentCompletedProjects = recentCompletedProjects,
-                InProgressTasks         = inProgressTasks
+                OverdueTasks = overdueTasks
             };
         }
     }

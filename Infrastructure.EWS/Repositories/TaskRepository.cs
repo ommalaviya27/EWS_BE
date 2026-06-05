@@ -144,5 +144,59 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking()
                 .ToListAsync();
         }
+
+        // Top 5 active projects ordered by task count descending
+        public async Task<List<(Projects Project, int TaskCount)>> GetActiveProjectsByTaskCountAsync(
+            int teamLeadUserId, int take = 5)
+        {
+            return await _context.Projects
+                .Where(p => p.UserId == teamLeadUserId
+                         && !p.IsDeleted
+                         && p.ProjectStatus == ProjectStatus.Active)
+                .Select(p => new
+                {
+                    Project   = p,
+                    TaskCount = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted)
+                })
+                .OrderByDescending(x => x.TaskCount)
+                .Take(take)
+                .AsNoTracking()
+                .ToListAsync()
+                .ContinueWith(t => t.Result
+                    .Select(x => (x.Project, x.TaskCount))
+                    .ToList());
+        }
+
+        // Top 5 recently completed projects ordered by UpdatedAt descending
+        public async Task<List<Projects>> GetRecentlyCompletedProjectsAsync(
+            int teamLeadUserId, int take = 5)
+        {
+            return await _context.Projects
+                .Where(p => p.UserId == teamLeadUserId
+                         && !p.IsDeleted
+                         && p.ProjectStatus == ProjectStatus.Completed)
+                .OrderByDescending(p => p.UpdatedAt)
+                .Take(take)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<List<Tasks>> GetHighPriorityTeamTasksByDueDateAsync(
+            int teamLeadUserId, int take = 5)
+        {
+            var projectIds = await GetTeamLeadProjectIdsAsync(teamLeadUserId);
+
+            return await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.AssignedTo)
+                .Where(t => projectIds.Contains(t.ProjectId)
+                         && !t.IsDeleted
+                         && t.Priority == TaskPriority.High
+                         && t.TaskStatus != TaskStatuses.Completed)
+                .OrderBy(t => t.DueDate)
+                .Take(take)
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }
