@@ -187,6 +187,7 @@ namespace Infrastructure.EWS.Repositories
 
         public async Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId)
         {
+
             var projectIds = await _context.Tasks
                 .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
                 .Select(t => t.ProjectId)
@@ -200,7 +201,7 @@ namespace Infrastructure.EWS.Repositories
                 .Where(p => projectIds.Contains(p.Id) && !p.IsDeleted)
                 .AsNoTracking()
                 .ToListAsync()
-                .ContinueWith(t => t.Result            
+                .ContinueWith(t => t.Result
                     .Select(p => new MyProjectResponse
                     {
                         Id = p.Id,

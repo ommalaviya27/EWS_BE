@@ -89,9 +89,22 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
-        public async Task<IEnumerable<GetProjectResponse>> GetProjectsByUserIdAsync(int userId)
-            => await _context.Projects
+        public async Task<PagedResponse<GetProjectResponse>> GetProjectsByUserIdAsync(int userId, ProjectListRequest request)
+        {
+            var query = _context.Projects
                 .Where(p => p.UserId == userId && !p.IsDeleted)
+                .AsQueryable();
+
+            var search = request.Search?.Trim();
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search}%"));
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(p => p.Name)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .Select(p => new GetProjectResponse
                 {
                     Id = p.Id,
@@ -105,6 +118,9 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+            return PagedResponse<GetProjectResponse>.Create(items, totalCount, request.PageNumber, request.PageSize);
+        }
+
         public async Task<TeamLeadDashboardResponse> GetTeamTaskCountsAsync(int teamLeadUserId)
         {
             var now = DateTime.UtcNow;
@@ -116,7 +132,7 @@ namespace Infrastructure.EWS.Repositories
                 .GroupBy(_ => 1)
                 .Select(g => new TeamLeadDashboardResponse
                 {
-                    MyTeamTaskCount   = g.Count(),
+                    MyTeamTaskCount = g.Count(),
                     OverdueTaskCount = g.Count(t => t.DueDate < now && t.TaskStatus != TaskStatuses.Completed),
                 })
                 .AsNoTracking()
@@ -223,12 +239,12 @@ namespace Infrastructure.EWS.Repositories
                 .Take(take)
                 .Select(p => new GetProjectResponse
                 {
-                    Id          = p.Id,
-                    Name        = p.Name,
+                    Id = p.Id,
+                    Name = p.Name,
                     Description = p.Description,
-                    UserId      = p.UserId,
-                    StartDate   = p.StartDate,
-                    EndDate     = p.EndDate,
+                    UserId = p.UserId,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
                 })
                 .AsNoTracking()
                 .ToListAsync();

@@ -16,7 +16,7 @@ namespace Domain.EWS.Interface
         Task<User?> GetAssigneeAsync(int userId);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<IEnumerable<User>> GetTeamMembersAsync(int teamLeadUserId);
-        Task<IEnumerable<GetProjectResponse>> GetProjectsByUserIdAsync(int userId);
+        Task<PagedResponse<GetProjectResponse>> GetProjectsByUserIdAsync(int userId, ProjectListRequest request);
         Task<TeamLeadDashboardResponse> GetTeamTaskCountsAsync(int teamLeadUserId);
         Task<int> GetActiveProjectCountAsync(int teamLeadUserId);
         Task<List<GetTaskResponse>> GetRecentTeamTasksAsync(int teamLeadUserId, int take = 5);

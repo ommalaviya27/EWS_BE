@@ -12,6 +12,8 @@ using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 using System.Security.Claims;
+using Shared.EWS.Extensions;
+using Shared.EWS.DataModel.Request;
 
 namespace Application.EWS.Services
 {
@@ -150,8 +152,8 @@ namespace Application.EWS.Services
             return _mapper.Map<IEnumerable<GetUserResponse>>(users);
         }
 
-        public async Task<IEnumerable<GetProjectResponse>> GetMyProjectsAsync()
-            => await _taskRepository.GetProjectsByUserIdAsync(CurrentUserId);
+        public async Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(ProjectListRequest request)
+            => await _taskRepository.GetProjectsByUserIdAsync(CurrentUserId, request);
 
         public async Task<TeamLeadDashboardResponse> GetTeamLeadDashboardAsync()
         {

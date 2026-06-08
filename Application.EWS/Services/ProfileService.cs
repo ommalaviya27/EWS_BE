@@ -50,7 +50,7 @@ namespace Application.EWS.Services
                 ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
 
             if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
-                throw new InvalidCredentialsException("Old password is incorrect.");
+                throw new InvalidOperationException("Old password is incorrect.");
 
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new InvalidOperationException("New password and confirm password do not match.");
