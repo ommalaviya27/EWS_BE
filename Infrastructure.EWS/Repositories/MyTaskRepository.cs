@@ -1,4 +1,6 @@
 using Domain.EWS.DataModels.Request.MyTasks;
+using Domain.EWS.DataModels.Response.MyTasks;
+using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
@@ -11,7 +13,7 @@ using Shared.EWS.Extensions;
 namespace Infrastructure.EWS.Repositories
 {
     public class MyTaskRepository(EWSDbContext context)
-        : GenericRepository<Tasks>(context), IMyTaskRepository  
+        : GenericRepository<Tasks>(context), IMyTaskRepository
     {
         public async Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(
             int userId,
@@ -46,26 +48,169 @@ namespace Infrastructure.EWS.Repositories
             return await query.ToPagedResponseAsync(request);
         }
 
-        public async Task<List<Tasks>> GetAllTasksByUserAsync(int userId)
-            => await _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.AssignedBy)
-                .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
-                .ToListAsync();
-
-        public async Task<List<Tasks>> GetOverdueTasksAsync(int userId)
+        public async Task<EmployeeDashboardResponse> GetEmployeeDashboardCountsAsync(int userId)
         {
             var now = DateTime.UtcNow;
+            var fiveDaysEnd = now.AddDays(5);
+
             return await _context.Tasks
-                .Include(t => t.Project)
-                .Include(t => t.AssignedBy)
+                .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
+                .GroupBy(_ => 1)
+                .Select(g => new EmployeeDashboardResponse
+                {
+                    AssignedTaskCount = g.Count(),
+                    CompletedTaskCount = g.Count(t => t.TaskStatus == TaskStatuses.Completed),
+                    UpcomingDeadlineCount = g.Count(t =>
+                        t.TaskStatus != TaskStatuses.Completed &&
+                        t.DueDate >= now &&
+                        t.DueDate <= fiveDaysEnd),
+                })
+                .AsNoTracking()
+                .FirstOrDefaultAsync()
+                ?? new EmployeeDashboardResponse();
+        }
+
+        public async Task<List<GetTaskResponse>> GetUpcomingDeadlineTasksAsync(int userId, int take = 5)
+        {
+            var now = DateTime.UtcNow;
+            var fiveDaysEnd = now.AddDays(5);
+
+            return await _context.Tasks
+                .Where(t => t.AssignedToUserId == userId
+                         && !t.IsDeleted
+                         && t.TaskStatus != TaskStatuses.Completed
+                         && t.DueDate >= now
+                         && t.DueDate <= fiveDaysEnd)
+                .OrderBy(t => t.DueDate)
+                .Take(take)
+                .Select(t => new GetTaskResponse
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    Description = t.Description,
+                    ProjectId = t.ProjectId,
+                    ProjectName = t.Project != null ? t.Project.Name : string.Empty,
+                    AssignedToUserId = t.AssignedToUserId,
+                    AssignedByUserId = t.AssignedByUserId,
+                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
+                    TaskStatus = t.TaskStatus,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate,
+                })
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+
+        public async Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5)
+        {
+            return await _context.Tasks
+                .Where(t => t.AssignedToUserId == userId
+                         && !t.IsDeleted
+                         && t.TaskStatus == TaskStatuses.OnHold
+                         && t.Project != null
+                         && t.Project.ProjectStatus == ProjectStatus.Active)
+                .OrderBy(t => t.DueDate)
+                .Take(take)
+                .Select(t => new GetTaskResponse
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    Description = t.Description,
+                    ProjectId = t.ProjectId,
+                    ProjectName = t.Project != null ? t.Project.Name : string.Empty,
+                    AssignedToUserId = t.AssignedToUserId,
+                    AssignedByUserId = t.AssignedByUserId,
+                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
+                    TaskStatus = t.TaskStatus,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate,
+                })
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<List<GetTaskResponse>> GetRecentCompletedTasksAsync(int userId, int take = 5)
+        {
+            return await _context.Tasks
+                .Where(t => t.AssignedToUserId == userId
+                         && !t.IsDeleted
+                         && t.TaskStatus == TaskStatuses.Completed)
+                .OrderByDescending(t => t.UpdatedAt)
+                .Take(take)
+                .Select(t => new GetTaskResponse
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    Description = t.Description,
+                    ProjectId = t.ProjectId,
+                    ProjectName = t.Project != null ? t.Project.Name : string.Empty,
+                    AssignedToUserId = t.AssignedToUserId,
+                    AssignedByUserId = t.AssignedByUserId,
+                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
+                    TaskStatus = t.TaskStatus,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate,
+                })
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<List<GetTaskResponse>> GetOverdueTasksAsync(int userId, int take = 5)
+        {
+            var now = DateTime.UtcNow;
+
+            return await _context.Tasks
                 .Where(t => t.AssignedToUserId == userId
                          && !t.IsDeleted
                          && t.TaskStatus != TaskStatuses.Completed
                          && t.DueDate < now)
                 .OrderBy(t => t.DueDate)
-                .Take(5)
+                .Take(take)
+                .Select(t => new GetTaskResponse
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    Description = t.Description,
+                    ProjectId = t.ProjectId,
+                    ProjectName = t.Project != null ? t.Project.Name : string.Empty,
+                    AssignedToUserId = t.AssignedToUserId,
+                    AssignedByUserId = t.AssignedByUserId,
+                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
+                    TaskStatus = t.TaskStatus,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate,
+                })
+                .AsNoTracking()
                 .ToListAsync();
+        }
+
+        public async Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId)
+        {
+            var projectIds = await _context.Tasks
+                .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
+                .Select(t => t.ProjectId)
+                .Distinct()
+                .ToListAsync();
+
+            if (!projectIds.Any())
+                return new List<MyProjectResponse>();
+
+            return await _context.Projects
+                .Where(p => projectIds.Contains(p.Id) && !p.IsDeleted)
+                .AsNoTracking()
+                .ToListAsync()
+                .ContinueWith(t => t.Result            
+                    .Select(p => new MyProjectResponse
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        Description = p.Description,
+                        ProjectStatus = (int?)p.ProjectStatus,
+                        StartDate = p.StartDate,
+                        EndDate = p.EndDate,
+                    })
+                    .ToList());
         }
 
         public async Task<Tasks?> GetTaskWithDetailsAsync(int id)

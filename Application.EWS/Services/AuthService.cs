@@ -27,11 +27,11 @@ namespace Application.EWS.Services
 
             var user = new User
             {
-                Name         = request.Name,
-                Email        = request.Email,
+                Name = request.Name,
+                Email = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber,
-                RoleId       = 3
+                RoleId = 3
             };
 
             await _authRepository.AddAsync(user);
@@ -72,7 +72,7 @@ namespace Application.EWS.Services
 
             var resetToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-            user.PasswordResetToken       = resetToken;
+            user.PasswordResetToken = resetToken;
             user.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
 
             await _authRepository.UpdateAsync(user);
@@ -87,13 +87,12 @@ namespace Application.EWS.Services
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new InvalidOperationException("New password and confirm password do not match.");
 
-            user.PasswordHash             = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.PasswordResetToken       = null;
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.PasswordResetToken = null;
             user.PasswordResetTokenExpiry = null;
 
             var activeTokens = await _authRepository.GetActiveTokensByUserAsync(user.Id);
 
-            // Persist password change + token revocations in a single operation
             await _authRepository.UpdateAsync(user);
             if (activeTokens.Count > 0)
                 await _authRepository.RevokeAllUserTokensAsync(activeTokens);
@@ -101,33 +100,33 @@ namespace Application.EWS.Services
 
         private async Task<AuthResponse> IssueTokensAsync(User user)
         {
-            var accessToken  = _tokenService.GenerateAccessToken(user);
+            var accessToken = _tokenService.GenerateAccessToken(user);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
-            var accessExpireMinutes  = int.Parse(_configuration["Jwt:ExpireMinutes"] ?? "60");
-            var refreshExpireDays    = int.Parse(_configuration["Jwt:RefreshTokenExpireDays"] ?? "7");
+            var accessExpireMinutes = int.Parse(_configuration["Jwt:ExpireMinutes"] ?? "60");
+            var refreshExpireDays = int.Parse(_configuration["Jwt:RefreshTokenExpireDays"] ?? "7");
 
-            var accessTokenExpiresAt  = DateTime.UtcNow.AddMinutes(accessExpireMinutes);
+            var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(accessExpireMinutes);
             var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(refreshExpireDays);
 
             await _authRepository.AddUserTokenAsync(new UserToken
             {
-                UserId                = user.Id,
-                AccessToken           = accessToken,
-                RefreshToken          = refreshToken,
-                AccessTokenExpiresAt  = accessTokenExpiresAt,
+                UserId = user.Id,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiresAt = accessTokenExpiresAt,
                 RefreshTokenExpiresAt = refreshTokenExpiresAt
             });
 
             return new AuthResponse
             {
-                AccessToken          = accessToken,
-                RefreshToken         = refreshToken,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
                 AccessTokenExpiresAt = accessTokenExpiresAt,
-                UserId               = user.Id,
-                Name                 = user.Name,
-                Email                = user.Email,
-                RoleId               = user.RoleId
+                UserId = user.Id,
+                Name = user.Name,
+                Email = user.Email,
+                RoleId = user.RoleId
             };
         }
     }

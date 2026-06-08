@@ -30,57 +30,22 @@ namespace Application.EWS.Services
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their dashboard.");
 
-            var now = DateTime.UtcNow;
-            var fiveDaysEnd = now.AddDays(5);
+            var counts = await _myTaskRepository.GetEmployeeDashboardCountsAsync(CurrentUserId);
 
-            // Fetch ALL tasks without any pagination constraint
-            var tasks = await _myTaskRepository.GetAllTasksByUserAsync(CurrentUserId);
-
-            // --- Actual counts from full data ---
-            var assignedTaskCount = tasks.Count;
-
-            var allCompleted = tasks
-                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
-                .ToList();
-            var completedTaskCount = allCompleted.Count;
-
-            var allUpcoming = tasks
-                .Where(t => t.TaskStatus != Shared.EWS.Enums.TaskStatuses.Completed
-                         && t.DueDate >= now
-                         && t.DueDate <= fiveDaysEnd)
-                .ToList();
-            var upcomingDeadlineCount = allUpcoming.Count;
-
-            // --- Panel lists: top 5 each ---
-            var upcomingDeadlines = allUpcoming
-                .OrderBy(t => t.DueDate)
-                .Take(5)
-                .ToList();
-
-            var onHoldTasks = tasks
-                .Where(t => t.TaskStatus == Shared.EWS.Enums.TaskStatuses.OnHold
-                         && t.Project != null
-                         && t.Project.ProjectStatus == Shared.EWS.Enums.ProjectStatus.Active)
-                .OrderBy(t => t.DueDate)
-                .Take(5)
-                .ToList();
-
-            var completedTasks = allCompleted
-                .OrderByDescending(t => t.UpdatedAt)
-                .Take(5)
-                .ToList();
-
-            var overdueTasks = await _myTaskRepository.GetOverdueTasksAsync(CurrentUserId);
+            var upcomingDeadlines = await _myTaskRepository.GetUpcomingDeadlineTasksAsync(CurrentUserId, 5);
+            var onHoldTasks = await _myTaskRepository.GetOnHoldActiveProjectTasksAsync(CurrentUserId, 5);
+            var completedTasks = await _myTaskRepository.GetRecentCompletedTasksAsync(CurrentUserId, 5);
+            var overdueTasks = await _myTaskRepository.GetOverdueTasksAsync(CurrentUserId, 5);
 
             return new EmployeeDashboardResponse
             {
-                AssignedTaskCount     = assignedTaskCount,
-                CompletedTaskCount    = completedTaskCount,
-                UpcomingDeadlineCount = upcomingDeadlineCount,
-                UpcomingDeadlines     = _mapper.Map<List<GetTaskResponse>>(upcomingDeadlines),
-                OnHoldTasks           = _mapper.Map<List<GetTaskResponse>>(onHoldTasks),
-                CompletedTasks        = _mapper.Map<List<GetTaskResponse>>(completedTasks),
-                OverdueTasks          = _mapper.Map<List<GetTaskResponse>>(overdueTasks),
+                AssignedTaskCount = counts.AssignedTaskCount,
+                CompletedTaskCount = counts.CompletedTaskCount,
+                UpcomingDeadlineCount = counts.UpcomingDeadlineCount,
+                UpcomingDeadlines = upcomingDeadlines,
+                OnHoldTasks = onHoldTasks,
+                CompletedTasks = completedTasks,
+                OverdueTasks = overdueTasks,
             };
         }
 
@@ -89,28 +54,7 @@ namespace Application.EWS.Services
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their project list.");
 
-            var allTasksRequest = new MyTaskSearchRequest { PageNumber = 1, PageSize = int.MaxValue };
-            var pagedTasks = await _myTaskRepository.GetTasksWithDetailsByUserAsync(CurrentUserId, allTasksRequest, null);
-            var tasks = pagedTasks.Items;
-
-            var seen = new HashSet<Guid>();
-            var projects = new List<MyProjectResponse>();
-
-            foreach (var t in tasks)
-            {
-                if (t.Project == null || !seen.Add(t.ProjectId)) continue;
-                projects.Add(new MyProjectResponse
-                {
-                    Id            = t.Project.Id,
-                    Name          = t.Project.Name,
-                    Description   = t.Project.Description,
-                    ProjectStatus = (int?)t.Project.ProjectStatus,
-                    StartDate     = t.Project.StartDate,
-                    EndDate       = t.Project.EndDate,
-                });
-            }
-
-            return projects;
+            return await _myTaskRepository.GetMyProjectsAsync(CurrentUserId);
         }
 
         public async Task<PagedResponse<GetTaskResponse>> GetMyTasksAsync(
@@ -125,10 +69,10 @@ namespace Application.EWS.Services
 
             return new PagedResponse<GetTaskResponse>
             {
-                Items      = mapped,
+                Items = mapped,
                 TotalCount = paged.TotalCount,
                 PageNumber = paged.PageNumber,
-                PageSize   = paged.PageSize,
+                PageSize = paged.PageSize,
             };
         }
 
@@ -155,8 +99,8 @@ namespace Application.EWS.Services
 
             var comment = new TaskComment
             {
-                TaskId  = taskId,
-                UserId  = CurrentUserId,
+                TaskId = taskId,
+                UserId = CurrentUserId,
                 Comment = request.Comment.Trim()
             };
 
@@ -213,7 +157,7 @@ namespace Application.EWS.Services
             await AuthorizeViewAsync(task);
 
             var pagedComments = await _myTaskRepository.GetCommentsByTaskPagedAsync(taskId, pagination);
-            var mappedItems   = _mapper.Map<IEnumerable<TaskCommentResponse>>(pagedComments.Items);
+            var mappedItems = _mapper.Map<IEnumerable<TaskCommentResponse>>(pagedComments.Items);
             return PagedResponse<TaskCommentResponse>.Create(
                 mappedItems,
                 pagedComments.TotalCount,
@@ -242,10 +186,10 @@ namespace Application.EWS.Services
                 var storedFileName = await _fileService.SaveAttachmentAsync(file, subFolder);
                 attachments.Add(new TaskAttachment
                 {
-                    TaskId   = taskId,
-                    UserId   = CurrentUserId,
+                    TaskId = taskId,
+                    UserId = CurrentUserId,
                     FileName = file.FileName,
-                    FileUrl  = storedFileName,
+                    FileUrl = storedFileName,
                     FileSize = file.Length
                 });
             }
@@ -289,7 +233,7 @@ namespace Application.EWS.Services
             await AuthorizeViewAsync(task);
 
             var pagedAttachments = await _myTaskRepository.GetAttachmentsByTaskPagedAsync(taskId, pagination);
-            var mappedItems      = _mapper.Map<IEnumerable<TaskAttachmentResponse>>(pagedAttachments.Items);
+            var mappedItems = _mapper.Map<IEnumerable<TaskAttachmentResponse>>(pagedAttachments.Items);
             return PagedResponse<TaskAttachmentResponse>.Create(
                 mappedItems,
                 pagedAttachments.TotalCount,

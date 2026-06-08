@@ -18,14 +18,12 @@ namespace Application.EWS.Services
     public class TaskService(
         ITaskRepository repository,
         IFileService fileService,
-        IProjectRepository projectRepository,
         IMapper mapper,
         ClaimsPrincipal principal)
         : GenericService<Tasks>(repository, principal), ITaskService
     {
         private readonly ITaskRepository _taskRepository = repository;
         private readonly IFileService _fileService = fileService;
-        private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly IMapper _mapper = mapper;
 
         public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(
@@ -45,10 +43,10 @@ namespace Application.EWS.Services
 
             return new PagedResponse<GetTaskResponse>
             {
-                Items      = mapped,
+                Items = mapped,
                 TotalCount = paged.TotalCount,
                 PageNumber = paged.PageNumber,
-                PageSize   = paged.PageSize
+                PageSize = paged.PageSize
             };
         }
 
@@ -81,14 +79,14 @@ namespace Application.EWS.Services
 
             var entity = new Tasks
             {
-                Title            = request.Title.Trim(),
-                Description      = request.Description.Trim(),
-                ProjectId        = request.ProjectId,
+                Title = request.Title.Trim(),
+                Description = request.Description.Trim(),
+                ProjectId = request.ProjectId,
                 AssignedToUserId = request.AssignedToUserId,
                 AssignedByUserId = CurrentUserId,
-                TaskStatus       = TaskStatuses.Pending,
-                Priority         = request.Priority,
-                DueDate          = request.DueDate
+                TaskStatus = TaskStatuses.Pending,
+                Priority = request.Priority,
+                DueDate = request.DueDate
             };
 
             var created = await AddAsync(entity);
@@ -114,12 +112,12 @@ namespace Application.EWS.Services
 
             await ValidateAssigneeAsync(request.AssignedToUserId);
 
-            task.Title           = request.Title.Trim();
-            task.Description     = request.Description.Trim();
-            task.AssignedToUserId= request.AssignedToUserId;
-            task.TaskStatus      = request.Status;
-            task.Priority        = request.Priority;
-            task.DueDate         = request.DueDate;
+            task.Title = request.Title.Trim();
+            task.Description = request.Description.Trim();
+            task.AssignedToUserId = request.AssignedToUserId;
+            task.TaskStatus = request.Status;
+            task.Priority = request.Priority;
+            task.DueDate = request.DueDate;
 
             var updated = await UpdateAsync(task);
             return await GetTaskByIdAsync(updated.Id)
@@ -153,101 +151,32 @@ namespace Application.EWS.Services
         }
 
         public async Task<IEnumerable<GetProjectResponse>> GetMyProjectsAsync()
-        {
-            var projects = await _taskRepository.GetProjectsByUserIdAsync(CurrentUserId);
-            return _mapper.Map<IEnumerable<GetProjectResponse>>(projects);
-        }
+            => await _taskRepository.GetProjectsByUserIdAsync(CurrentUserId);
 
         public async Task<TeamLeadDashboardResponse> GetTeamLeadDashboardAsync()
         {
             if (CurrentRoleId != 2)
                 throw new ForbiddenException("Only Team Leads can access the team lead dashboard.");
 
-            var now = DateTime.UtcNow;
+            var taskCounts = await _taskRepository.GetTeamTaskCountsAsync(CurrentUserId);
+            var activeProjectCount = await _taskRepository.GetActiveProjectCountAsync(CurrentUserId);
 
-            var allTeamTasks = await _taskRepository.GetAllTeamTasksAsync(CurrentUserId);
-            var myTeamTaskCount  = allTeamTasks.Count;
-            var overdueTaskCount = allTeamTasks
-                .Count(t => t.DueDate < now && t.TaskStatus != TaskStatuses.Completed);
-
-            var myProjects       = (await _taskRepository.GetProjectsByUserIdAsync(CurrentUserId)).ToList();
-            var activeProjectCount = myProjects.Count(p => p.ProjectStatus == ProjectStatus.Active);
-
-            // Top 5 active projects ordered by task count descending
-            var activeProjectsWithCount = await _taskRepository
-                .GetActiveProjectsByTaskCountAsync(CurrentUserId, 5);
-
-            var activeProjectCards = activeProjectsWithCount
-                .Select(x => new GetProjectResponse
-                {
-                    Id          = x.Project.Id,
-                    Name        = x.Project.Name,
-                    Description = x.Project.Description,
-                    UserId      = x.Project.UserId,
-                    StartDate   = x.Project.StartDate,
-                    EndDate     = x.Project.EndDate,
-                    TaskCount   = x.TaskCount
-                })
-                .ToList();
-
-            // Top 5 recently completed projects (no status field needed)
-            var completedProjectEntities = await _taskRepository
-                .GetRecentlyCompletedProjectsAsync(CurrentUserId, 5);
-
-            var completedProjectCards = completedProjectEntities
-                .Select(p => new GetProjectResponse
-                {
-                    Id          = p.Id,
-                    Name        = p.Name,
-                    Description = p.Description,
-                    UserId      = p.UserId,
-                    StartDate   = p.StartDate,
-                    EndDate     = p.EndDate
-                })
-                .ToList();
-
-            // Top 5 overdue tasks (most overdue first)
-            var overdueTaskEntities = await _taskRepository.GetOverdueTeamTasksAsync(CurrentUserId, 5);
-            var overdueTaskCards = overdueTaskEntities
-                .Select(MapToTaskResponse)
-                .ToList();
-
-            // Top 5 high-priority tasks ordered by nearest due date
-            var highPriorityTaskEntities = await _taskRepository
-                .GetHighPriorityTeamTasksByDueDateAsync(CurrentUserId, 5);
-
-            var recentTeamTaskCards = highPriorityTaskEntities
-                .Select(MapToTaskResponse)
-                .ToList();
+            var activeProjects = await _taskRepository.GetActiveProjectsByTaskCountAsync(CurrentUserId, 5);
+            var completedProjects = await _taskRepository.GetRecentlyCompletedProjectsAsync(CurrentUserId, 5);
+            var overdueTasks = await _taskRepository.GetOverdueTeamTasksAsync(CurrentUserId, 5);
+            var recentTeamTasks = await _taskRepository.GetRecentTeamTasksAsync(CurrentUserId, 5);
 
             return new TeamLeadDashboardResponse
             {
-                MyTeamTaskCount    = myTeamTaskCount,
-                OverdueTaskCount   = overdueTaskCount,
+                MyTeamTaskCount = taskCounts.MyTeamTaskCount,
+                OverdueTaskCount = taskCounts.OverdueTaskCount,
                 ActiveProjectCount = activeProjectCount,
-                ActiveProjects     = activeProjectCards,
-                CompletedProjects  = completedProjectCards,
-                OverdueTasks       = overdueTaskCards,
-                RecentTeamTasks    = recentTeamTaskCards,
+                ActiveProjects = activeProjects,
+                CompletedProjects = completedProjects,
+                OverdueTasks = overdueTasks,
+                RecentTeamTasks = recentTeamTasks,
             };
         }
-
-        private static GetTaskResponse MapToTaskResponse(Tasks t) =>
-            new()
-            {
-                Id                 = t.Id,
-                Title              = t.Title,
-                Description        = t.Description,
-                ProjectId          = t.ProjectId,
-                ProjectName        = t.Project?.Name ?? string.Empty,
-                AssignedToUserId   = t.AssignedToUserId,
-                AssignedToUserName = t.AssignedTo?.Name ?? string.Empty,
-                AssignedByUserId   = t.AssignedByUserId,
-                AssignedByUserName = t.AssignedBy?.Name ?? string.Empty,
-                TaskStatus         = t.TaskStatus,
-                Priority           = t.Priority,
-                DueDate            = t.DueDate
-            };
 
         private void ValidateTeamLeadOrAdmin(string action)
         {

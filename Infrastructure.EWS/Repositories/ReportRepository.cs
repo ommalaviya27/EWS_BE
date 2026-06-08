@@ -74,7 +74,6 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking();
 
             var search = request.Search?.Trim().ToLower();
-
             if (!string.IsNullOrEmpty(search))
                 employeeQuery = employeeQuery.Where(u =>
                     u.Name.ToLower().Contains(search) ||
@@ -147,33 +146,40 @@ namespace Infrastructure.EWS.Repositories
                 ? DateTime.UtcNow.AddDays(-7)
                 : DateTime.UtcNow.AddDays(-30);
 
-            var tasks = await _context.Tasks
+            var dist = await _context.Tasks
                 .Where(t => !t.IsDeleted && t.CreatedAt >= fromDate)
-                .Select(t => new { t.TaskStatus, t.Priority })
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    StatusPending = g.Count(t => t.TaskStatus == TaskStatuses.Pending),
+                    StatusInProgress = g.Count(t => t.TaskStatus == TaskStatuses.InProgress),
+                    StatusCompleted = g.Count(t => t.TaskStatus == TaskStatuses.Completed),
+                    StatusOnHold = g.Count(t => t.TaskStatus == TaskStatuses.OnHold),
+                    PriorityLow = g.Count(t => t.Priority == TaskPriority.Low),
+                    PriorityMedium = g.Count(t => t.Priority == TaskPriority.Medium),
+                    PriorityHigh = g.Count(t => t.Priority == TaskPriority.High),
+                    Total = g.Count(),
+                })
                 .AsNoTracking()
-                .ToListAsync();
-
-            var statusDist = new TaskStatusDistributionResponse
-            {
-                Pending = tasks.Count(t => t.TaskStatus == TaskStatuses.Pending),
-                InProgress = tasks.Count(t => t.TaskStatus == TaskStatuses.InProgress),
-                Completed = tasks.Count(t => t.TaskStatus == TaskStatuses.Completed),
-                OnHold = tasks.Count(t => t.TaskStatus == TaskStatuses.OnHold),
-                Total = tasks.Count,
-            };
-
-            var priorityDist = new TaskPriorityDistributionResponse
-            {
-                Low = tasks.Count(t => t.Priority == TaskPriority.Low),
-                Medium = tasks.Count(t => t.Priority == TaskPriority.Medium),
-                High = tasks.Count(t => t.Priority == TaskPriority.High),
-                Total = tasks.Count,
-            };
+                .FirstOrDefaultAsync();
 
             return new TaskCompletionOverviewResponse
             {
-                StatusDistribution   = statusDist,
-                PriorityDistribution = priorityDist,
+                StatusDistribution = new TaskStatusDistributionResponse
+                {
+                    Pending = dist?.StatusPending    ?? 0,
+                    InProgress = dist?.StatusInProgress ?? 0,
+                    Completed = dist?.StatusCompleted  ?? 0,
+                    OnHold = dist?.StatusOnHold     ?? 0,
+                    Total = dist?.Total            ?? 0,
+                },
+                PriorityDistribution = new TaskPriorityDistributionResponse
+                {
+                    Low = dist?.PriorityLow    ?? 0,
+                    Medium = dist?.PriorityMedium ?? 0,
+                    High = dist?.PriorityHigh   ?? 0,
+                    Total = dist?.Total          ?? 0,
+                },
             };
         }
 
@@ -182,8 +188,6 @@ namespace Infrastructure.EWS.Repositories
         {
             var query = _context.Tasks
                 .Where(t => !t.IsDeleted)
-                .Include(t => t.AssignedTo)
-                .Include(t => t.Project)
                 .AsNoTracking();
 
             var search = request.Search?.Trim().ToLower();
@@ -216,24 +220,30 @@ namespace Infrastructure.EWS.Repositories
 
         public async Task<ProjectProgressOverviewResponse> GetProjectProgressOverviewAsync()
         {
-            var projects = await _context.Projects
+            var dist = await _context.Projects
                 .Where(p => !p.IsDeleted)
-                .Select(p => new { p.ProjectStatus })
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Active = g.Count(p => p.ProjectStatus == ProjectStatus.Active),
+                    Completed = g.Count(p => p.ProjectStatus == ProjectStatus.Completed),
+                    Total = g.Count(),
+                })
                 .AsNoTracking()
-                .ToListAsync();
+                .FirstOrDefaultAsync();
 
             return new ProjectProgressOverviewResponse
             {
                 StatusDistribution = new ProjectStatusDistributionResponse
                 {
-                    Active = projects.Count(p => p.ProjectStatus == ProjectStatus.Active),
-                    Completed = projects.Count(p => p.ProjectStatus == ProjectStatus.Completed),
-                    Total = projects.Count,
+                    Active = dist?.Active ?? 0,
+                    Completed = dist?.Completed ?? 0,
+                    Total = dist?.Total ?? 0,
                 },
             };
         }
 
-        public async Task<PagedResponse<ProjectProgressSummaryResponse>> GetProjectProgressSummaryAsync(
+       public async Task<PagedResponse<ProjectProgressSummaryResponse>> GetProjectProgressSummaryAsync(
             ProjectProgressRequest request)
         {
             var projectQuery = _context.Projects
@@ -241,7 +251,6 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking();
 
             var search = request.Search?.Trim().ToLower();
-
             if (!string.IsNullOrEmpty(search))
                 projectQuery = projectQuery.Where(p => p.Name.ToLower().Contains(search));
 
@@ -251,51 +260,38 @@ namespace Infrastructure.EWS.Repositories
                 return PagedResponse<ProjectProgressSummaryResponse>.Create(
                     [], totalCount, request.PageNumber, request.PageSize);
 
-            var allProjects = await projectQuery
-                .Select(p => new { p.Id, p.Name })
-                .ToListAsync();
-
-            var allProjectIds = allProjects.Select(p => p.Id).ToList();
-
-            var taskGroups = await _context.Tasks
-                .Where(t => !t.IsDeleted && allProjectIds.Contains(t.ProjectId))
-                .GroupBy(t => t.ProjectId)
-                .Select(g => new
-                {
-                    ProjectId = g.Key,
-                    Total = g.Count(),
-                    Completed = g.Count(t => t.TaskStatus == TaskStatuses.Completed),
-                    InProgress = g.Count(t => t.TaskStatus == TaskStatuses.InProgress),
-                    Pending = g.Count(t => t.TaskStatus == TaskStatuses.Pending),
-                    OnHold = g.Count(t => t.TaskStatus == TaskStatuses.OnHold),
-                })
-                .AsNoTracking()
-                .ToDictionaryAsync(g => g.ProjectId);
-
-            var items = allProjects
-                .Select(p =>
-                {
-                    taskGroups.TryGetValue(p.Id, out var tg);
-                    var total     = tg?.Total ?? 0;
-                    var completed = tg?.Completed ?? 0;
-
-                    return new ProjectProgressSummaryResponse
-                    {
-                        ProjectId = p.Id,
-                        ProjectName = p.Name,
-                        TotalTasks = total,
-                        CompletedTasks = completed,
-                        InProgressTasks = tg?.InProgress ?? 0,
-                        PendingTasks = tg?.Pending ?? 0,
-                        OnHoldTasks = tg?.OnHold ?? 0,
-                        ProgressPercentage = total > 0
-                            ? Math.Round((double)completed / total * 100, 1)
-                            : 0,
-                    };
-                })
-                .OrderByDescending(p => p.ProgressPercentage)
+            var rawItems = await projectQuery
+                .OrderBy(p => p.Id)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    TotalTasks = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted),
+                    CompletedTasks = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted && t.TaskStatus == TaskStatuses.Completed),
+                    InProgressTasks = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted && t.TaskStatus == TaskStatuses.InProgress),
+                    PendingTasks = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted && t.TaskStatus == TaskStatuses.Pending),
+                    OnHoldTasks = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted && t.TaskStatus == TaskStatuses.OnHold),
+                })
+                .AsNoTracking()
+                .ToListAsync();
+
+            var items = rawItems
+                .Select(p => new ProjectProgressSummaryResponse
+                {
+                    ProjectId = p.Id,
+                    ProjectName = p.Name,
+                    TotalTasks = p.TotalTasks,
+                    CompletedTasks = p.CompletedTasks,
+                    InProgressTasks = p.InProgressTasks,
+                    PendingTasks = p.PendingTasks,
+                    OnHoldTasks = p.OnHoldTasks,
+                    ProgressPercentage = p.TotalTasks > 0
+                        ? Math.Round((double)p.CompletedTasks / p.TotalTasks * 100, 1)
+                        : 0,
+                })
+                .OrderByDescending(p => p.ProgressPercentage)
                 .ToList();
 
             return PagedResponse<ProjectProgressSummaryResponse>.Create(

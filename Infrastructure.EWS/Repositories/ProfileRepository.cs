@@ -1,3 +1,4 @@
+using Domain.EWS.DataModels.Response.Profile;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
@@ -8,17 +9,30 @@ namespace Infrastructure.EWS.Repositories
     public class ProfileRepository(EWSDbContext context)
         : GenericRepository<User>(context), IProfileRepository
     {
-        public async Task<User?> GetUserByIdAsync(int userId)
+        public async Task<GetProfileResponse?> GetProfileByIdAsync(int userId)
             => await _context.Users
                 .Where(u => u.Id == userId && !u.IsDeleted)
+                .Join(_context.Roles,
+                    u => u.RoleId,
+                    r => r.Id,
+                    (u, r) => new GetProfileResponse
+                    {
+                        UserId = u.Id,
+                        Name = u.Name,
+                        Email = u.Email,
+                        MobileNumber = u.MobileNumber,
+                        RoleId = u.RoleId,
+                        RoleName = r.Name,
+                    })
                 .AsNoTracking()
                 .FirstOrDefaultAsync();
 
         public async Task<string?> GetRoleNameAsync(int roleId)
-        {
-            var role = await _context.Roles.FindAsync(roleId);
-            return role?.Name;
-        }
+            => await _context.Roles
+                .Where(r => r.Id == roleId)
+                .Select(r => r.Name)
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
 
         public async Task<bool> EmailTakenAsync(string email, int excludeUserId)
             => await _context.Users
