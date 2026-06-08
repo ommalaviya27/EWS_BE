@@ -22,13 +22,8 @@ namespace Application.EWS.Services
 
         public async Task<GetProfileResponse> GetProfileAsync()
         {
-            var user = await ProfileRepository.GetUserByIdAsync(CurrentUserId)
+            return await ProfileRepository.GetProfileByIdAsync(CurrentUserId)
                 ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
-
-            var roleName = await ProfileRepository.GetRoleNameAsync(user.RoleId);
-            var response = _mapper.Map<GetProfileResponse>(user);
-            response.RoleName = roleName ?? string.Empty;
-            return response;
         }
 
         public async Task<GetProfileResponse> UpdateProfileAsync(UpdateProfileRequest request)
@@ -39,16 +34,14 @@ namespace Application.EWS.Services
             if (await ProfileRepository.EmailTakenAsync(request.Email, CurrentUserId))
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
 
-            user.Name         = request.Name.Trim();
-            user.Email        = request.Email.Trim().ToLower();
+            user.Name = request.Name.Trim();
+            user.Email = request.Email.Trim().ToLower();
             user.MobileNumber = request.MobileNumber.Trim();
 
             await UpdateAsync(user);
 
-            var roleName = await ProfileRepository.GetRoleNameAsync(user.RoleId);
-            var response = _mapper.Map<GetProfileResponse>(user);
-            response.RoleName = roleName ?? string.Empty;
-            return response;
+            return await ProfileRepository.GetProfileByIdAsync(CurrentUserId)
+                ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
         }
 
         public async Task ChangePasswordAsync(ChangePasswordRequest request)
@@ -57,7 +50,7 @@ namespace Application.EWS.Services
                 ?? throw new NotFoundException($"User with id '{CurrentUserId}' was not found.");
 
             if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
-                throw new InvalidCredentialsException("Old password is incorrect.");
+                throw new InvalidOperationException("Old password is incorrect.");
 
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new InvalidOperationException("New password and confirm password do not match.");

@@ -1,4 +1,6 @@
 using Domain.EWS.DataModels.Request.MyTasks;
+using Domain.EWS.DataModels.Response.MyTasks;
+using Domain.EWS.DataModels.Response.Tasks;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
@@ -10,8 +12,12 @@ namespace Domain.EWS.Interface
     public interface IMyTaskRepository : IGenericRepository<Tasks>
     {
         Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(int userId, MyTaskSearchRequest request, Guid? projectId);
-        Task<List<Tasks>> GetAllTasksByUserAsync(int userId);
-        Task<List<Tasks>> GetOverdueTasksAsync(int userId);
+        Task<EmployeeDashboardResponse> GetEmployeeDashboardCountsAsync(int userId);
+        Task<List<GetTaskResponse>> GetUpcomingDeadlineTasksAsync(int userId, int take = 5);
+        Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5);
+        Task<List<GetTaskResponse>> GetRecentCompletedTasksAsync(int userId, int take = 5);
+        Task<List<GetTaskResponse>> GetOverdueTasksAsync(int userId, int take = 5);
+        Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status);

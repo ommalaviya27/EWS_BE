@@ -41,20 +41,13 @@ namespace Infrastructure.EWS.Repositories
 
             var search = pagination.Search?.Trim();
             if (!string.IsNullOrEmpty(search))
-            {
-                baseQuery = baseQuery.Where(u =>
-                    EF.Functions.ILike(u.Name, $"%{search}%"));
-            }
+                baseQuery = baseQuery.Where(u => EF.Functions.ILike(u.Name, $"%{search}%"));
 
             if (pagination.RoleId.HasValue)
-            {
                 baseQuery = baseQuery.Where(u => u.RoleId == pagination.RoleId.Value);
-            }
 
             if (pagination.Status.HasValue)
-            {
                 baseQuery = baseQuery.Where(u => u.Status == pagination.Status.Value);
-            }
 
             var counts = await baseQuery
                 .Where(u => u.RoleId == 3)
@@ -140,15 +133,17 @@ namespace Infrastructure.EWS.Repositories
         }
 
         public async Task<string?> GetRoleNameAsync(int roleId)
-        {
-            var role = await _context.Roles.FindAsync(roleId);
-            return role?.Name;
-        }
+            => await _context.Roles
+                .Where(r => r.Id == roleId)
+                .Select(r => r.Name)
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
 
         public async Task<string?> GetTeamLeadNameAsync(int teamLeadId)
-        {
-            var tl = await _context.Users.FindAsync(teamLeadId);
-            return tl?.Name;
-        }
+            => await _context.Users
+                .Where(u => u.Id == teamLeadId && !u.IsDeleted)
+                .Select(u => u.Name)
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
     }
 }
