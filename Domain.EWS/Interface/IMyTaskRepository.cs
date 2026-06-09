@@ -26,6 +26,7 @@ namespace Domain.EWS.Interface
         Task<TaskComment?> GetCommentWithDetailsAsync(int commentId);
         Task<PagedResponse<TaskComment>> GetCommentsByTaskPagedAsync(int taskId, PaginationRequest pagination);
         Task<TaskComment> AddCommentAsync(TaskComment comment);
+        Task<bool> IsDuplicateCommentAsync(int taskId, int userId, string commentText);
         Task<TaskComment> UpdateCommentAsync(TaskComment comment);
         Task<bool> SoftDeleteCommentAsync(int commentId);
 

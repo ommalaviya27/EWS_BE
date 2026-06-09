@@ -11,6 +11,7 @@ namespace Domain.EWS.Interface
     public interface ITaskRepository : IGenericRepository<Tasks>
     {
         Task<PagedResponse<Tasks>> GetAllTasksWithDetailsAsync(TaskSearchRequest request, Guid? projectId, int? assignedToUserId, List<Guid>? projectIdFilter);
+        Task<bool> IsDuplicateTaskAsync(Guid projectId, string title, int? excludeTaskId = null);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<Projects?> GetProjectByIdAsync(Guid projectId);
         Task<User?> GetAssigneeAsync(int userId);

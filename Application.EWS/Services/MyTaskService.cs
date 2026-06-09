@@ -98,6 +98,16 @@ namespace Application.EWS.Services
 
             await AuthorizeViewAsync(task);
 
+            if (task.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
+                throw new InvalidOperationException(
+                    "Comments cannot be added to a completed task.");
+
+            var isDuplicateComment = await _myTaskRepository.IsDuplicateCommentAsync(
+                taskId, CurrentUserId, request.Comment);
+            if (isDuplicateComment)
+                throw new InvalidOperationException(
+                    "You have already posted same comment on the task.");
+
             var comment = new TaskComment
             {
                 TaskId = taskId,
@@ -178,6 +188,10 @@ namespace Application.EWS.Services
                 ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
 
             await AuthorizeViewAsync(task);
+
+            if (task.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
+                throw new InvalidOperationException(
+                    "Attachments cannot be added to a completed task.");
 
             const string subFolder = "Tasks";
             var attachments = new List<TaskAttachment>();

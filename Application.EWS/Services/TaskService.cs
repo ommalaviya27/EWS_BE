@@ -77,6 +77,11 @@ namespace Application.EWS.Services
             if (request.DueDate <= DateTime.UtcNow)
                 throw new InvalidOperationException("Due date must be in the future.");
 
+            var isDuplicate = await _taskRepository.IsDuplicateTaskAsync(request.ProjectId, request.Title);
+            if (isDuplicate)
+                throw new InvalidOperationException(
+                    $"A task with the title '{request.Title.Trim()}' already exists in this project. Please use a unique task title.");
+
             var entity = new Tasks
             {
                 Title = request.Title.Trim(),
@@ -111,6 +116,11 @@ namespace Application.EWS.Services
             }
 
             await ValidateAssigneeAsync(request.AssignedToUserId);
+
+            var isDuplicate = await _taskRepository.IsDuplicateTaskAsync(task.ProjectId, request.Title, id);
+            if (isDuplicate)
+                throw new InvalidOperationException(
+                    $"A task with the title '{request.Title.Trim()}' already exists in this project. Please use a unique task title.");
 
             task.Title = request.Title.Trim();
             task.Description = request.Description.Trim();

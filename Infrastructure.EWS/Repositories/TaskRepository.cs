@@ -66,6 +66,19 @@ namespace Infrastructure.EWS.Repositories
                 .Include(t => t.Attachments).ThenInclude(a => a.User)
                 .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
 
+        public async Task<bool> IsDuplicateTaskAsync(Guid projectId, string title, int? excludeTaskId = null)
+        {
+            var normalizedTitle = title.Trim().ToLower();
+            var query = _context.Tasks
+                .Where(t => t.ProjectId == projectId && !t.IsDeleted &&
+                            t.Title.ToLower() == normalizedTitle);
+
+            if (excludeTaskId.HasValue)
+                query = query.Where(t => t.Id != excludeTaskId.Value);
+
+            return await query.AnyAsync();
+        }
+
         public async Task<Projects?> GetProjectByIdAsync(Guid projectId)
             => await _context.Projects
                 .AsNoTracking()

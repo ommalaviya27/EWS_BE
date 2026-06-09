@@ -275,6 +275,15 @@ namespace Infrastructure.EWS.Repositories
                 .FirstAsync(c => c.Id == comment.Id);
         }
 
+        public async Task<bool> IsDuplicateCommentAsync(int taskId, int userId, string commentText)
+        {
+            var normalizedComment = commentText.Trim().ToLower();
+            return await _context.TaskComments
+                .Where(c => c.TaskId == taskId && c.UserId == userId && !c.IsDeleted &&
+                            c.Comment.ToLower() == normalizedComment)
+                .AnyAsync();
+        }
+
         public async Task<TaskComment> UpdateCommentAsync(TaskComment comment)
         {
             comment.UpdatedAt = DateTime.UtcNow;
