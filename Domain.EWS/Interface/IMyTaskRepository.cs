@@ -1,5 +1,6 @@
 using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.DataModels.Response.MyTasks;
+using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
@@ -17,7 +18,7 @@ namespace Domain.EWS.Interface
         Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetRecentCompletedTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetOverdueTasksAsync(int userId, int take = 5);
-        Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId);
+        Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(int userId, MyProjectListRequest request);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status);
@@ -25,6 +26,7 @@ namespace Domain.EWS.Interface
         Task<TaskComment?> GetCommentWithDetailsAsync(int commentId);
         Task<PagedResponse<TaskComment>> GetCommentsByTaskPagedAsync(int taskId, PaginationRequest pagination);
         Task<TaskComment> AddCommentAsync(TaskComment comment);
+        Task<bool> IsDuplicateCommentAsync(int taskId, int userId, string commentText);
         Task<TaskComment> UpdateCommentAsync(TaskComment comment);
         Task<bool> SoftDeleteCommentAsync(int commentId);
 

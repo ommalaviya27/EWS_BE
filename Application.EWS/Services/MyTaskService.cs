@@ -11,6 +11,7 @@ using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 using System.Security.Claims;
+using Domain.EWS.DataModels.Response.Project;
 
 namespace Application.EWS.Services
 {
@@ -49,12 +50,12 @@ namespace Application.EWS.Services
             };
         }
 
-        public async Task<List<MyProjectResponse>> GetMyProjectsAsync()
+        public async Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(MyProjectListRequest request)
         {
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their project list.");
 
-            return await _myTaskRepository.GetMyProjectsAsync(CurrentUserId);
+            return await _myTaskRepository.GetMyProjectsAsync(CurrentUserId, request);
         }
 
         public async Task<PagedResponse<GetTaskResponse>> GetMyTasksAsync(
@@ -96,6 +97,16 @@ namespace Application.EWS.Services
                 ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
 
             await AuthorizeViewAsync(task);
+
+            if (task.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
+                throw new InvalidOperationException(
+                    "Comments cannot be added to a completed task.");
+
+            var isDuplicateComment = await _myTaskRepository.IsDuplicateCommentAsync(
+                taskId, CurrentUserId, request.Comment);
+            if (isDuplicateComment)
+                throw new InvalidOperationException(
+                    "You have already posted same comment on the task.");
 
             var comment = new TaskComment
             {
@@ -177,6 +188,10 @@ namespace Application.EWS.Services
                 ?? throw new NotFoundException($"Task with id '{taskId}' was not found.");
 
             await AuthorizeViewAsync(task);
+
+            if (task.TaskStatus == Shared.EWS.Enums.TaskStatuses.Completed)
+                throw new InvalidOperationException(
+                    "Attachments cannot be added to a completed task.");
 
             const string subFolder = "Tasks";
             var attachments = new List<TaskAttachment>();

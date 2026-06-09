@@ -1,5 +1,6 @@
 using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.DataModels.Response.MyTasks;
+using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
@@ -185,9 +186,8 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId)
+        public async Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(int userId, MyProjectListRequest request)
         {
-
             var projectIds = await _context.Tasks
                 .Where(t => t.AssignedToUserId == userId && !t.IsDeleted)
                 .Select(t => t.ProjectId)
@@ -195,25 +195,40 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
 
             if (!projectIds.Any())
-                return new List<MyProjectResponse>();
+                return PagedResponse<GetProjectResponse>.Create(
+                    new List<GetProjectResponse>(), 0, request.PageNumber, request.PageSize);
 
-            return await _context.Projects
+            var query = _context.Projects
                 .Where(p => projectIds.Contains(p.Id) && !p.IsDeleted)
-                .AsNoTracking()
-                .ToListAsync()
-                .ContinueWith(t => t.Result
-                    .Select(p => new MyProjectResponse
-                    {
-                        Id = p.Id,
-                        Name = p.Name,
-                        Description = p.Description,
-                        ProjectStatus = (int?)p.ProjectStatus,
-                        StartDate = p.StartDate,
-                        EndDate = p.EndDate,
-                    })
-                    .ToList());
-        }
+                .AsQueryable();
 
+            var search = request.Search?.Trim();
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search}%"));
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(p => p.Name)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(p => new GetProjectResponse
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    UserId = p.UserId,
+                    ProjectStatus = p.ProjectStatus,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    TaskCount = _context.Tasks.Count(t => t.ProjectId == p.Id && t.AssignedToUserId == userId && !t.IsDeleted),
+                })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return PagedResponse<GetProjectResponse>.Create(items, totalCount, request.PageNumber, request.PageSize);
+        }
+        
         public async Task<Tasks?> GetTaskWithDetailsAsync(int id)
             => await _context.Tasks
                 .Include(t => t.Project)
@@ -258,6 +273,15 @@ namespace Infrastructure.EWS.Repositories
             return await _context.TaskComments
                 .Include(c => c.User)
                 .FirstAsync(c => c.Id == comment.Id);
+        }
+
+        public async Task<bool> IsDuplicateCommentAsync(int taskId, int userId, string commentText)
+        {
+            var normalizedComment = commentText.Trim().ToLower();
+            return await _context.TaskComments
+                .Where(c => c.TaskId == taskId && c.UserId == userId && !c.IsDeleted &&
+                            c.Comment.ToLower() == normalizedComment)
+                .AnyAsync();
         }
 
         public async Task<TaskComment> UpdateCommentAsync(TaskComment comment)
