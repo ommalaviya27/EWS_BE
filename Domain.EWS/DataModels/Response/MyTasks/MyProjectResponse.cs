@@ -1,3 +1,5 @@
+using Shared.EWS.Enums;
+
 namespace Domain.EWS.DataModels.Response.MyTasks
 {
     public class MyProjectResponse
@@ -5,7 +7,7 @@ namespace Domain.EWS.DataModels.Response.MyTasks
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public int? ProjectStatus { get; set; }
+        public ProjectStatus ProjectStatus { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
     }

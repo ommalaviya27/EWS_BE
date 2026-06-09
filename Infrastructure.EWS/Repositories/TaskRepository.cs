@@ -4,7 +4,6 @@ using Domain.EWS.DataModels.Response.Tasks;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
@@ -114,6 +113,7 @@ namespace Infrastructure.EWS.Repositories
                     ProjectStatus = p.ProjectStatus,
                     StartDate = p.StartDate,
                     EndDate = p.EndDate,
+                    TaskCount = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted),
                 })
                 .AsNoTracking()
                 .ToListAsync();

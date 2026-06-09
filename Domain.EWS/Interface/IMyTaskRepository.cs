@@ -1,5 +1,6 @@
 using Domain.EWS.DataModels.Request.MyTasks;
 using Domain.EWS.DataModels.Response.MyTasks;
+using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
@@ -17,7 +18,7 @@ namespace Domain.EWS.Interface
         Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetRecentCompletedTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetOverdueTasksAsync(int userId, int take = 5);
-        Task<List<MyProjectResponse>> GetMyProjectsAsync(int userId);
+        Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(int userId, MyProjectListRequest request);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
         Task<Tasks> UpdateTaskStatusAsync(Tasks task, TaskStatuses status);

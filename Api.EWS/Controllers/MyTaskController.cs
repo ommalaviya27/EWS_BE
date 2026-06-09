@@ -19,9 +19,9 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet("my-projects")]
-        public async Task<IActionResult> GetMyProjects()
+        public async Task<IActionResult> GetMyProjects([FromQuery] MyProjectListRequest request)
         {
-            var result = await myTaskService.GetMyProjectsAsync();
+            var result = await myTaskService.GetMyProjectsAsync(request);
             return Ok(ResponseHelper.SuccessResponse(result, "My projects fetched successfully."));
         }
 

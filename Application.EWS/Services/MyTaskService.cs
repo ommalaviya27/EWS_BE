@@ -11,6 +11,7 @@ using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 using System.Security.Claims;
+using Domain.EWS.DataModels.Response.Project;
 
 namespace Application.EWS.Services
 {
@@ -49,12 +50,12 @@ namespace Application.EWS.Services
             };
         }
 
-        public async Task<List<MyProjectResponse>> GetMyProjectsAsync()
+        public async Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(MyProjectListRequest request)
         {
             if (CurrentRoleId != 3)
                 throw new UnauthorizedAccessException("Only employees can access their project list.");
 
-            return await _myTaskRepository.GetMyProjectsAsync(CurrentUserId);
+            return await _myTaskRepository.GetMyProjectsAsync(CurrentUserId, request);
         }
 
         public async Task<PagedResponse<GetTaskResponse>> GetMyTasksAsync(

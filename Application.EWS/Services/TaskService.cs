@@ -12,8 +12,6 @@ using Shared.EWS.Exceptions;
 using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 using System.Security.Claims;
-using Shared.EWS.Extensions;
-using Shared.EWS.DataModel.Request;
 
 namespace Application.EWS.Services
 {
