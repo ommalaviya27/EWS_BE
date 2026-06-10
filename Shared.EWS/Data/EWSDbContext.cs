@@ -15,10 +15,11 @@ namespace Shared.EWS.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserToken> UserTokens { get; set; }
         public DbSet<Projects> Projects { get; set; }
-        public DbSet<ProjectMember> ProjectMembers { get; set; }
         public DbSet<Tasks> Tasks { get; set; }
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
+        public DbSet<Attendance> Attendances { get; set; }
+        public DbSet<LeaveApplication> LeaveApplications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -99,28 +100,7 @@ namespace Shared.EWS.Data
                 b.Property(x => x.CreatedBy).HasColumnName("created_by");
                 b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(x => x.UserId);
-                b.HasIndex(x=>x.Name);
-            });
-
-            modelBuilder.Entity<ProjectMember>(b =>
-            {
-                b.ToTable("project_members");
-                b.HasKey(x => x.ProjectMemberId);
-                b.Property(x => x.ProjectMemberId).HasColumnName("project_member_id").UseIdentityColumn();
-                b.Property(x => x.ProjectId).HasColumnName("project_id").IsRequired();
-                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
-                b.Property(x => x.JoinedAt).HasColumnName("joined_at").IsRequired();
-                b.HasOne(x => x.Project)
-                 .WithMany()
-                 .HasForeignKey(x => x.ProjectId)
-                 .OnDelete(DeleteBehavior.Cascade);
-                b.HasOne(x => x.User)
-                 .WithMany()
-                 .HasForeignKey(x => x.UserId)
-                 .OnDelete(DeleteBehavior.Cascade);
-                b.HasIndex(x => x.ProjectId);
-                b.HasIndex(x => x.UserId);
-                b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+                b.HasIndex(x => x.Name);
             });
 
             modelBuilder.Entity<Tasks>(b =>
@@ -190,6 +170,57 @@ namespace Shared.EWS.Data
                  .HasForeignKey(x => x.UserId)
                  .OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(x => x.TaskId);
+            });
+
+            modelBuilder.Entity<Attendance>(b =>
+            {
+                b.ToTable("attendances");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("attendance_id").UseIdentityColumn();
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.Property(x => x.AttendanceDate).HasColumnName("attendance_date").IsRequired();
+                b.Property(x => x.Status).HasColumnName("status").HasConversion<string>().IsRequired();
+                b.Property(x => x.ApprovalStatus).HasColumnName("approval_status").HasConversion<string>().HasDefaultValue(ApprovalStatus.Pending);
+                b.Property(x => x.ReviewerId).HasColumnName("reviewer_id");
+                b.Property(x => x.ReviewerRemark).HasColumnName("reviewer_remark").HasMaxLength(500);
+                b.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(x => x.Reviewer)
+                 .WithMany()
+                 .HasForeignKey(x => x.ReviewerId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => new { x.UserId, x.AttendanceDate }).IsUnique();
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => x.AttendanceDate);
+            });
+
+            modelBuilder.Entity<LeaveApplication>(b =>
+            {
+                b.ToTable("leave_applications");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("leave_application_id").UseIdentityColumn();
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.Property(x => x.ReviewerId).HasColumnName("reviewer_id");
+                b.Property(x => x.LeaveType).HasColumnName("leave_type").HasConversion<string>().IsRequired();
+                b.Property(x => x.StartDate).HasColumnName("start_date").IsRequired();
+                b.Property(x => x.EndDate).HasColumnName("end_date").IsRequired();
+                b.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(1000).IsRequired();
+                b.Property(x => x.LeaveStatus).HasColumnName("leave_status").HasConversion<string>().HasDefaultValue(ApprovalStatus.Pending);
+                b.Property(x => x.ReviewerRemark).HasColumnName("reviewer_remark").HasMaxLength(500);
+                b.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+                b.HasOne(x => x.User)
+                 .WithMany()
+                 .HasForeignKey(x => x.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(x => x.Reviewer)
+                 .WithMany()
+                 .HasForeignKey(x => x.ReviewerId)
+                 .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(x => x.UserId);
+                b.HasIndex(x => x.StartDate);
             });
         }
     }
