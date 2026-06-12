@@ -2,6 +2,7 @@ using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Attendance;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Shared.EWS.DataModel.Request;
 using Shared.EWS.Helpers;
 using System.Net;
 
@@ -12,13 +13,6 @@ namespace Api.EWS.Controllers
     [Route("api/attendance")]
     public class AttendanceController(IAttendanceService attendanceService) : ControllerBase
     {
-        [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] AttendanceSearchRequest request)
-        {
-            var result = await attendanceService.GetAllAsync(request);
-            return Ok(ResponseHelper.SuccessResponse(result, "Attendance records fetched successfully."));
-        }
-
         [HttpGet("monthly")]
         public async Task<IActionResult> GetMonthly([FromQuery] AttendanceMonthRequest request)
         {
@@ -33,6 +27,13 @@ namespace Api.EWS.Controllers
             return Ok(ResponseHelper.SuccessResponse(result, "Attendance record fetched successfully."));
         }
 
+        [HttpGet("pending-review")]
+        public async Task<IActionResult> GetPendingForReview([FromQuery] PaginationRequest pagination)
+        {
+            var result = await attendanceService.GetPendingForReviewAsync(pagination);
+            return Ok(ResponseHelper.SuccessResponse(result, "Pending attendance records fetched successfully."));
+        }
+
         [HttpPost]
         public async Task<IActionResult> Add([FromBody] AddAttendanceRequest request)
         {
@@ -41,6 +42,16 @@ namespace Api.EWS.Controllers
                 nameof(GetById),
                 new { id = result.Id },
                 ResponseHelper.SuccessResponse(result, "Attendance submitted successfully.", HttpStatusCode.Created));
+        }
+
+        [HttpPost("admin-fill")]
+        public async Task<IActionResult> AdminFill([FromBody] AdminAddAttendanceRequest request)
+        {
+            var result = await attendanceService.AdminAddAsync(request);
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = result.Id },
+                ResponseHelper.SuccessResponse(result, "Attendance filled successfully.", HttpStatusCode.Created));
         }
 
         [HttpPut("{id:int}")]
@@ -55,13 +66,6 @@ namespace Api.EWS.Controllers
         {
             var result = await attendanceService.ReviewAsync(id, request);
             return Ok(ResponseHelper.SuccessResponse(result, "Attendance reviewed successfully."));
-        }
-
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            await attendanceService.DeleteAsync(id);
-            return Ok(ResponseHelper.SuccessResponse<object>(null, "Attendance record deleted successfully."));
         }
     }
 }

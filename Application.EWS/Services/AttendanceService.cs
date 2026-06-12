@@ -3,6 +3,7 @@ using AutoMapper;
 using Domain.EWS.DataModels.Request.Attendance;
 using Domain.EWS.DataModels.Response.Attendance;
 using Domain.EWS.Interface;
+using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
@@ -16,42 +17,17 @@ namespace Application.EWS.Services
     public class AttendanceService(
         IAttendanceRepository repository,
         IMapper mapper,
+        IEmailService emailService,
         ClaimsPrincipal principal)
         : GenericService<Attendance>(repository, principal), IAttendanceService
     {
         private readonly IAttendanceRepository _attendanceRepository = repository;
         private readonly IMapper _mapper = mapper;
+        private readonly IEmailService _emailService = emailService;
 
         private bool IsAdmin => CurrentRoleId == 1;
         private bool IsTeamLead => CurrentRoleId == 2;
         private bool IsEmployee => CurrentRoleId == 3;
-
-        public async Task<PagedResponse<AttendanceResponse>> GetAllAsync(AttendanceSearchRequest request)
-        {
-            int? forceUserId = null;
-            List<int>? teamMemberIds = null;
-
-            if (IsEmployee)
-            {
-                forceUserId = CurrentUserId;
-            }
-            else if (IsTeamLead)
-            {
-                var memberIds = await _attendanceRepository.GetTeamMemberIdsAsync(CurrentUserId);
-                memberIds.Add(CurrentUserId);
-                teamMemberIds = memberIds;
-            }
-
-            var paged = await _attendanceRepository.GetAllWithDetailsAsync(request, forceUserId, teamMemberIds);
-
-            return new PagedResponse<AttendanceResponse>
-            {
-                Items = paged.Items.Select(_mapper.Map<AttendanceResponse>).ToList(),
-                TotalCount = paged.TotalCount,
-                PageNumber = paged.PageNumber,
-                PageSize = paged.PageSize
-            };
-        }
 
         public async Task<AttendanceResponse> GetByIdAsync(int id)
         {
@@ -127,10 +103,8 @@ namespace Application.EWS.Services
 
                 if (rec != null)
                 {
-                    if (rec.Status == AttendanceStatus.Absent)
-                        absentCount++;
-                    else
-                        presentCount++;
+                    if (rec.Status == AttendanceStatus.Absent) absentCount++;
+                    else presentCount++;
                 }
                 else if (!isWeekend && date.Date < today)
                 {
@@ -168,8 +142,6 @@ namespace Application.EWS.Services
 
         public async Task<AttendanceResponse> AddAsync(AddAttendanceRequest request)
         {
-            if (IsAdmin)
-                throw new ForbiddenException("Admins cannot submit attendance.");
 
             var today = DateTime.UtcNow.Date;
 
@@ -193,34 +165,113 @@ namespace Application.EWS.Services
             return _mapper.Map<AttendanceResponse>(created);
         }
 
+        public async Task<AttendanceResponse> AdminAddAsync(AdminAddAttendanceRequest request)
+        {
+            if (!IsAdmin && !IsTeamLead)
+                throw new ForbiddenException("Only Admins or Team Leads can fill attendance on behalf of others.");
+
+            if (IsTeamLead)
+            {
+                if (request.UserId == CurrentUserId)
+                    throw new ForbiddenException("Team Leads cannot fill their own attendance.");
+
+                var memberIds = await _attendanceRepository.GetTeamMemberIdsAsync(CurrentUserId);
+                if (!memberIds.Contains(request.UserId))
+                    throw new ForbiddenException("You can fill attendance of your team-member only.");
+            }
+
+            var targetDate = DateTime.SpecifyKind(
+                request.AttendanceDate?.Date ?? DateTime.UtcNow.Date,
+                DateTimeKind.Utc);
+
+            if (targetDate >= DateTime.UtcNow.Date)
+                throw new InvalidOperationException(
+                    "Today's and future attendance cannot be filled. Everyone can only fill their attendance for today.");
+
+            var duplicate = await _attendanceRepository.ExistsForDateAsync(request.UserId, targetDate);
+            if (duplicate)
+                throw new DuplicateRecordException(
+                    $"Attendance for this user has already been submitted for {targetDate:yyyy-MM-dd}.");
+
+            var entity = new Attendance
+            {
+                UserId = request.UserId,
+                AttendanceDate = targetDate,
+                Status = request.Status,
+                ApprovalStatus = ApprovalStatus.Approved,
+                ReviewerId = CurrentUserId,
+                ReviewedAt = DateTime.UtcNow
+            };
+
+            await _repository.AddAsync(entity);
+
+            var created = await _attendanceRepository.GetWithDetailsAsync(entity.Id)
+                ?? throw new InvalidOperationException("Failed to retrieve newly created attendance record.");
+
+            return _mapper.Map<AttendanceResponse>(created);
+        }
+
         public async Task<AttendanceResponse> EditAsync(int id, EditAttendanceRequest request)
         {
-            if (IsAdmin)
-                throw new ForbiddenException("Admins do not submit attendance.");
-
             var attendance = await GetAttendanceOrThrowAsync(id);
 
-            if (attendance.ApprovalStatus != ApprovalStatus.Pending)
-                throw new InvalidOperationException(
-                    "Attendance cannot be edited that has been reviewed.");
-
-            if (IsEmployee)
+            if (IsAdmin)
             {
-                if (attendance.UserId != CurrentUserId)
-                    throw new ForbiddenException("You can only edit your own attendance.");
+                if (attendance.UserId == CurrentUserId)
+                    throw new ForbiddenException("Admins cannot edit their own attendance.");
+
+                if (attendance.AttendanceDate.Date >= DateTime.UtcNow.Date)
+                    throw new InvalidOperationException(
+                        "Today's and future attendance cannot be edited. The user must manage their own attendance for today.");
             }
             else if (IsTeamLead)
             {
-                if (attendance.UserId != CurrentUserId)
+                if (attendance.UserId == CurrentUserId)
+                {
+                    if (attendance.ApprovalStatus == ApprovalStatus.Approved)
+                        throw new InvalidOperationException(
+                            "Attendance cannot be edited that has been approved.");
+                }
+                else
                 {
                     var memberIds = await _attendanceRepository.GetTeamMemberIdsAsync(CurrentUserId);
                     if (!memberIds.Contains(attendance.UserId))
                         throw new ForbiddenException("You can only edit attendance for members of your team.");
+
+                    if (attendance.AttendanceDate.Date >= DateTime.UtcNow.Date)
+                        throw new InvalidOperationException(
+                            "Today's and future attendance cannot be edited. The employee must manage their own attendance for today.");
                 }
+            }
+            else
+            {
+                if (attendance.UserId != CurrentUserId)
+                    throw new ForbiddenException("You can only edit your own attendance.");
+
+                if (attendance.ApprovalStatus == ApprovalStatus.Approved)
+                    throw new InvalidOperationException(
+                        "Attendance cannot be edited that has been approved.");
             }
 
             attendance.Status = request.Status;
             attendance.UpdatedAt = DateTime.UtcNow;
+
+            if ((IsAdmin || IsTeamLead) && attendance.UserId != CurrentUserId)
+            {
+                attendance.ApprovalStatus = ApprovalStatus.Approved;
+                attendance.ReviewerId = CurrentUserId;
+                attendance.ReviewedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                if (attendance.ApprovalStatus == ApprovalStatus.Rejected)
+                {
+                    attendance.ApprovalStatus = ApprovalStatus.Pending;
+                    attendance.ReviewerId = null;
+                    attendance.ReviewerRemark = null;
+                    attendance.ReviewedAt = null;
+                }
+            }
 
             await _repository.UpdateAsync(attendance);
 
@@ -238,7 +289,8 @@ namespace Application.EWS.Services
             if (request.ApprovalStatus == ApprovalStatus.Pending)
                 throw new InvalidOperationException("Review decision must be Approved or Rejected.");
 
-            var attendance = await GetAttendanceOrThrowAsync(id);
+            var attendance = await _attendanceRepository.GetWithDetailsAsync(id)
+                ?? throw new NotFoundException($"Attendance record with id '{id}' was not found.");
 
             if (attendance.ApprovalStatus != ApprovalStatus.Pending)
                 throw new InvalidOperationException(
@@ -259,19 +311,43 @@ namespace Application.EWS.Services
 
             await _repository.UpdateAsync(attendance);
 
+            if (request.ApprovalStatus == ApprovalStatus.Rejected && attendance.User != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendAttendanceRejectedEmailAsync(
+                            attendance.User.Email,
+                            attendance.User.Name,
+                            attendance.AttendanceDate,
+                            request.ReviewerRemark);
+                    }
+                    catch
+                    {
+                        // Silently swallow email errors so the review response is unaffected
+                    }
+                });
+            }
+
             var reviewed = await _attendanceRepository.GetWithDetailsAsync(id)
                 ?? throw new InvalidOperationException("Failed to retrieve reviewed attendance record.");
 
             return _mapper.Map<AttendanceResponse>(reviewed);
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<PagedResponse<AttendanceResponse>> GetPendingForReviewAsync(PaginationRequest pagination)
         {
-            if (!IsAdmin)
-                throw new ForbiddenException("Only Admins can delete attendance records.");
+            if (IsEmployee)
+                throw new ForbiddenException("Employees cannot review attendance.");
 
-            var attendance = await GetAttendanceOrThrowAsync(id);
-            return await _repository.DeleteAsync(attendance.Id);
+            var paged = await _attendanceRepository.GetPendingForReviewAsync(CurrentUserId, IsAdmin, pagination);
+
+            return PagedResponse<AttendanceResponse>.Create(
+                paged.Items.Select(_mapper.Map<AttendanceResponse>).ToList(),
+                paged.TotalCount,
+                paged.PageNumber,
+                paged.PageSize);
         }
 
         private async Task<Attendance> GetAttendanceOrThrowAsync(int id)

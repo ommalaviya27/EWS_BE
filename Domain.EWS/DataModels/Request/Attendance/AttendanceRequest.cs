@@ -1,3 +1,4 @@
+using Shared.EWS.DataModel.Request;
 using Shared.EWS.Enums;
 
 namespace Domain.EWS.DataModels.Request.Attendance
@@ -5,6 +6,13 @@ namespace Domain.EWS.DataModels.Request.Attendance
     public class AddAttendanceRequest
     {
         public AttendanceStatus Status { get; set; }
+    }
+
+    public class AdminAddAttendanceRequest
+    {
+        public int UserId { get; set; }
+        public AttendanceStatus Status { get; set; }
+        public DateTime? AttendanceDate { get; set; }
     }
 
     public class EditAttendanceRequest
@@ -23,16 +31,5 @@ namespace Domain.EWS.DataModels.Request.Attendance
         public int Month { get; set; }
         public int Year { get; set; }
         public int? UserId { get; set; }
-    }
-
-    public class AttendanceSearchRequest
-    {
-        public int PageNumber { get; set; } = 1;
-        public int PageSize { get; set; } = 10;
-        public int? UserId { get; set; }
-        public int? Month { get; set; }
-        public int? Year { get; set; }
-        public AttendanceStatus? Status { get; set; }
-        public ApprovalStatus? ApprovalStatus { get; set; }
     }
 }

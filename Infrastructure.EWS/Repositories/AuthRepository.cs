@@ -9,10 +9,10 @@ namespace Infrastructure.EWS.Repositories
         : GenericRepository<User>(context), IAuthRepository
     {
         public async Task<bool> EmailExistsAsync(string email)
-            => await _context.Users.AnyAsync(u => u.Email == email);
+            => await _context.Users.AnyAsync(u => u.Email == email && !u.IsDeleted);
 
         public async Task<User?> GetByEmailAsync(string email)
-            => await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            => await _context.Users.FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted);
 
         public async Task<UserToken?> GetValidRefreshTokenAsync(string refreshToken)
             => await _context.UserTokens
