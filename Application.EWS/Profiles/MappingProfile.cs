@@ -1,5 +1,6 @@
 using AutoMapper;
 using Domain.EWS.DataModels.Response.Attendance;
+using Domain.EWS.DataModels.Response.Leave;
 using Domain.EWS.DataModels.Response.Profile;
 using Domain.EWS.DataModels.Response.Project;
 using Domain.EWS.DataModels.Response.Tasks;
@@ -53,6 +54,9 @@ namespace Application.EWS.Profiles
             CreateMap<Attendance, AttendanceResponse>()
                 .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty))
                 .ForMember(d => d.ReviewerName, o => o.MapFrom(s => s.Reviewer != null ? s.Reviewer.Name : null));
+
+            CreateMap<LeaveApplication, LeaveResponse>()
+                .ForMember(d => d.CanEdit, o => o.Ignore());
         }
     }
 }
