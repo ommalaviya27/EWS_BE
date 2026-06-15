@@ -43,14 +43,14 @@ namespace Application.EWS.Services
 
             var entity = new Projects
             {
-                Id            = Guid.NewGuid(),
-                Name          = request.Name.Trim(),
-                Description   = request.Description.Trim(),
-                UserId        = request.UserId,
+                Id = Guid.NewGuid(),
+                Name = request.Name.Trim(),
+                Description = request.Description.Trim(),
+                UserId = request.UserId,
                 ProjectStatus = request.ProjectStatus,
-                StartDate     = request.StartDate,
-                EndDate       = request.EndDate,
-                CreatedBy     = request.UserId
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                CreatedBy = request.UserId
             };
 
             var created = await AddAsync(entity);
@@ -72,12 +72,12 @@ namespace Application.EWS.Services
             if (await _projectRepository.ProjectNameExistsAsync(request.Name, id))
                 throw new DuplicateRecordException($"A project named '{request.Name}' already exists.");
 
-            project.Name          = request.Name.Trim();
-            project.Description   = request.Description.Trim();
-            project.UserId        = request.UserId;
+            project.Name = request.Name.Trim();
+            project.Description = request.Description.Trim();
+            project.UserId = request.UserId;
             project.ProjectStatus = request.ProjectStatus;
-            project.StartDate     = request.StartDate;
-            project.EndDate       = request.EndDate;
+            project.StartDate = request.StartDate;
+            project.EndDate = request.EndDate;
 
             var updated = await UpdateAsync(project);
             return _mapper.Map<GetProjectResponse>(updated);

@@ -26,9 +26,7 @@ namespace Application.EWS.Services
         private readonly IFileService _fileService = fileService;
         private readonly IMapper _mapper = mapper;
 
-        public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(
-            TaskSearchRequest request,
-            Guid? projectId)
+        public async Task<PagedResponse<GetTaskResponse>> GetAllTasksAsync(TaskSearchRequest request, Guid? projectId)
         {
             List<Guid>? projectIdFilter = null;
             int? assignedToFilter = null;

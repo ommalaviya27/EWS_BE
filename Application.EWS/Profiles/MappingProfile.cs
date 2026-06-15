@@ -56,6 +56,8 @@ namespace Application.EWS.Profiles
                 .ForMember(d => d.ReviewerName, o => o.MapFrom(s => s.Reviewer != null ? s.Reviewer.Name : null));
 
             CreateMap<LeaveApplication, LeaveResponse>()
+                .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty))
+                .ForMember(d => d.ReviewerName, o => o.MapFrom(s => s.Reviewer != null ? s.Reviewer.Name : null))
                 .ForMember(d => d.CanEdit, o => o.Ignore());
         }
     }

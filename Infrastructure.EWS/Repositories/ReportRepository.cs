@@ -11,8 +11,6 @@ namespace Infrastructure.EWS.Repositories
 {
     public class ReportRepository(EWSDbContext context) : GenericRepository<User>(context), IReportRepository
     {
-        private const int TopEmployeesListSize = 5;
-
         public async Task<EmployeePerformanceReportResponse> GetEmployeePerformanceReportAsync(
             EmployeePerformanceReportRequest request)
         {
@@ -50,7 +48,7 @@ namespace Infrastructure.EWS.Repositories
                 .Where(g => employeeNames.ContainsKey(g.UserId))
                 .OrderByDescending(g => g.Completed)
                 .ThenByDescending(g => g.Total)
-                .Take(TopEmployeesListSize)
+                .Take(5)
                 .Select(g => new TopEmployeeTaskResponse
                 {
                     UserId = g.UserId,
@@ -66,8 +64,7 @@ namespace Infrastructure.EWS.Repositories
             return new EmployeePerformanceReportResponse { TopEmployees = topEmployees };
         }
 
-        public async Task<PagedResponse<EmployeeTaskSummaryResponse>> GetEmployeeSummaryAsync(
-            EmployeeSummaryRequest request)
+        public async Task<PagedResponse<EmployeeTaskSummaryResponse>> GetEmployeeSummaryAsync(EmployeeSummaryRequest request)
         {
             var employeeQuery = _context.Users
                 .Where(u => u.RoleId == 3 && !u.IsDeleted)
@@ -113,7 +110,7 @@ namespace Infrastructure.EWS.Repositories
                 .Select(emp =>
                 {
                     taskGroups.TryGetValue(emp.Id, out var tg);
-                    var total     = tg?.Total ?? 0;
+                    var total = tg?.Total ?? 0;
                     var completed = tg?.Completed ?? 0;
 
                     return new EmployeeTaskSummaryResponse
@@ -139,8 +136,7 @@ namespace Infrastructure.EWS.Repositories
                 items, totalCount, request.PageNumber, request.PageSize);
         }
 
-        public async Task<TaskCompletionOverviewResponse> GetTaskCompletionOverviewAsync(
-            TaskCompletionReportRequest request)
+        public async Task<TaskCompletionOverviewResponse> GetTaskCompletionOverviewAsync(TaskCompletionReportRequest request)
         {
             var fromDate = request.Filter?.ToLower() == "weekly"
                 ? DateTime.UtcNow.AddDays(-7)
@@ -167,24 +163,23 @@ namespace Infrastructure.EWS.Repositories
             {
                 StatusDistribution = new TaskStatusDistributionResponse
                 {
-                    Pending = dist?.StatusPending    ?? 0,
+                    Pending = dist?.StatusPending ?? 0,
                     InProgress = dist?.StatusInProgress ?? 0,
-                    Completed = dist?.StatusCompleted  ?? 0,
-                    OnHold = dist?.StatusOnHold     ?? 0,
-                    Total = dist?.Total            ?? 0,
+                    Completed = dist?.StatusCompleted ?? 0,
+                    OnHold = dist?.StatusOnHold ?? 0,
+                    Total = dist?.Total ?? 0,
                 },
                 PriorityDistribution = new TaskPriorityDistributionResponse
                 {
-                    Low = dist?.PriorityLow    ?? 0,
+                    Low = dist?.PriorityLow ?? 0,
                     Medium = dist?.PriorityMedium ?? 0,
-                    High = dist?.PriorityHigh   ?? 0,
-                    Total = dist?.Total          ?? 0,
+                    High = dist?.PriorityHigh ?? 0,
+                    Total = dist?.Total ?? 0,
                 },
             };
         }
 
-        public async Task<PagedResponse<TaskCompletionSummaryItemResponse>> GetTaskCompletionSummaryAsync(
-            TaskCompletionSummaryRequest request)
+        public async Task<PagedResponse<TaskCompletionSummaryItemResponse>> GetTaskCompletionSummaryAsync(TaskCompletionSummaryRequest request)
         {
             var query = _context.Tasks
                 .Where(t => !t.IsDeleted)
@@ -243,8 +238,7 @@ namespace Infrastructure.EWS.Repositories
             };
         }
 
-       public async Task<PagedResponse<ProjectProgressSummaryResponse>> GetProjectProgressSummaryAsync(
-            ProjectProgressRequest request)
+       public async Task<PagedResponse<ProjectProgressSummaryResponse>> GetProjectProgressSummaryAsync(ProjectProgressRequest request)
         {
             var projectQuery = _context.Projects
                 .Where(p => !p.IsDeleted && p.ProjectStatus == ProjectStatus.Active)

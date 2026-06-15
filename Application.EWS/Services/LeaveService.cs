@@ -233,7 +233,9 @@ namespace Application.EWS.Services
                 {
                     UserId = leave.UserId,
                     AttendanceDate = utcDate,
-                    Status = AttendanceStatus.Absent,
+                    Status = leave.LeaveType == LeaveType.HalfDay
+                        ? AttendanceStatus.HalfDay_WFO
+                        : AttendanceStatus.Absent,
                     ApprovalStatus = ApprovalStatus.Approved,
                     ReviewerId = CurrentUserId,
                     ReviewedAt = DateTime.UtcNow,
