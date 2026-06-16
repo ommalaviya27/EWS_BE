@@ -11,12 +11,8 @@ namespace Domain.EWS.DataModels.Response.Tasks
         public string ProjectName { get; set; } = string.Empty;
         public int AssignedToUserId { get; set; }
         public string AssignedToUserName { get; set; } = string.Empty;
-        public int AssignedByUserId { get; set; }
-        public string AssignedByUserName { get; set; } = string.Empty;
         public TaskStatuses TaskStatus { get; set; }
         public TaskPriority Priority { get; set; }
         public DateTime DueDate { get; set; }
-        public List<TaskCommentResponse> Comments { get; set; } = [];
-        public List<TaskAttachmentResponse> Attachments { get; set; } = [];
     }
 }

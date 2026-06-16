@@ -11,8 +11,8 @@ namespace Domain.EWS.Interface
     public interface ITaskRepository : IGenericRepository<Tasks>
     {
         Task<PagedResponse<Tasks>> GetAllTasksWithDetailsAsync(TaskSearchRequest request, Guid? projectId, int? assignedToUserId, List<Guid>? projectIdFilter);
-        Task<bool> IsDuplicateTaskAsync(Guid projectId, string title, int? excludeTaskId = null);
         Task<Tasks?> GetTaskWithDetailsAsync(int id);
+        Task<bool> IsDuplicateTaskAsync(Guid projectId, string title, int? excludeTaskId = null);
         Task<Projects?> GetProjectByIdAsync(Guid projectId);
         Task<User?> GetAssigneeAsync(int userId);
         Task<List<Guid>> GetTeamLeadProjectIdsAsync(int teamLeadUserId);
@@ -20,10 +20,10 @@ namespace Domain.EWS.Interface
         Task<PagedResponse<GetProjectResponse>> GetProjectsByUserIdAsync(int userId, ProjectListRequest request);
         Task<TeamLeadDashboardResponse> GetTeamTaskCountsAsync(int teamLeadUserId);
         Task<int> GetActiveProjectCountAsync(int teamLeadUserId);
-        Task<List<GetTaskResponse>> GetRecentTeamTasksAsync(int teamLeadUserId, int take = 5);
-        Task<List<GetTaskResponse>> GetOverdueTeamTasksAsync(int teamLeadUserId, int take = 5);
+        Task<List<GetTaskResponse>> GetRecentTeamTasksAsync(int teamLeadUserId);
+        Task<List<GetTaskResponse>> GetOverdueTeamTasksAsync(int teamLeadUserId);
 
-        Task<List<GetProjectResponse>> GetActiveProjectsByTaskCountAsync(int teamLeadUserId, int take = 5);
-        Task<List<GetProjectResponse>> GetRecentlyCompletedProjectsAsync(int teamLeadUserId, int take = 5);
+        Task<List<GetProjectResponse>> GetActiveProjectsByTaskCountAsync(int teamLeadUserId);
+        Task<List<GetProjectResponse>> GetRecentlyCompletedProjectsAsync(int teamLeadUserId);
     }
 }

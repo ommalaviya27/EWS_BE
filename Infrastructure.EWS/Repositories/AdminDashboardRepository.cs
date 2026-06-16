@@ -77,8 +77,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
                     AssignedToUserName = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate

@@ -169,10 +169,10 @@ namespace Application.EWS.Services
             var taskCounts = await _taskRepository.GetTeamTaskCountsAsync(CurrentUserId);
             var activeProjectCount = await _taskRepository.GetActiveProjectCountAsync(CurrentUserId);
 
-            var activeProjects = await _taskRepository.GetActiveProjectsByTaskCountAsync(CurrentUserId, 5);
-            var completedProjects = await _taskRepository.GetRecentlyCompletedProjectsAsync(CurrentUserId, 5);
-            var overdueTasks = await _taskRepository.GetOverdueTeamTasksAsync(CurrentUserId, 5);
-            var recentTeamTasks = await _taskRepository.GetRecentTeamTasksAsync(CurrentUserId, 5);
+            var activeProjects = await _taskRepository.GetActiveProjectsByTaskCountAsync(CurrentUserId);
+            var completedProjects = await _taskRepository.GetRecentlyCompletedProjectsAsync(CurrentUserId);
+            var overdueTasks = await _taskRepository.GetOverdueTeamTasksAsync(CurrentUserId);
+            var recentTeamTasks = await _taskRepository.GetRecentTeamTasksAsync(CurrentUserId);
 
             return new TeamLeadDashboardResponse
             {

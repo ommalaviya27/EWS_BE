@@ -107,11 +107,11 @@ namespace Infrastructure.EWS.Repositories
                 .Where(p => p.UserId == userId && !p.IsDeleted)
                 .AsQueryable();
 
+            var totalCount = await query.CountAsync();
+            
             var search = request.Search?.Trim();
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search}%"));
-
-            var totalCount = await query.CountAsync();
 
             var items = await query
                 .OrderBy(p => p.Name)
@@ -159,7 +159,7 @@ namespace Infrastructure.EWS.Repositories
                               && !p.IsDeleted
                               && p.ProjectStatus == ProjectStatus.Active);
 
-        public async Task<List<GetTaskResponse>> GetRecentTeamTasksAsync(int teamLeadUserId, int take = 5)
+        public async Task<List<GetTaskResponse>> GetRecentTeamTasksAsync(int teamLeadUserId)
         {
             return await _context.Tasks
                 .Where(t => !t.IsDeleted
@@ -167,7 +167,7 @@ namespace Infrastructure.EWS.Repositories
                          && _context.Projects.Any(p =>
                                 p.UserId == teamLeadUserId && !p.IsDeleted && p.Id == t.ProjectId))
                 .OrderByDescending(t => t.UpdatedAt)
-                .Take(take)
+                .Take(5)
                 .Select(t => new GetTaskResponse
                 {
                     Id = t.Id,
@@ -177,8 +177,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
                     AssignedToUserName = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -187,7 +185,7 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<GetTaskResponse>> GetOverdueTeamTasksAsync(int teamLeadUserId, int take = 5)
+        public async Task<List<GetTaskResponse>> GetOverdueTeamTasksAsync(int teamLeadUserId)
         {
             var now = DateTime.UtcNow;
 
@@ -198,7 +196,7 @@ namespace Infrastructure.EWS.Repositories
                          && _context.Projects.Any(p =>
                                 p.UserId == teamLeadUserId && !p.IsDeleted && p.Id == t.ProjectId))
                 .OrderBy(t => t.DueDate)
-                .Take(take)
+                .Take(5)
                 .Select(t => new GetTaskResponse
                 {
                     Id = t.Id,
@@ -208,8 +206,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
                     AssignedToUserName = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -218,8 +214,7 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<GetProjectResponse>> GetActiveProjectsByTaskCountAsync(
-            int teamLeadUserId, int take = 5)
+        public async Task<List<GetProjectResponse>> GetActiveProjectsByTaskCountAsync(int teamLeadUserId)
         {
             return await _context.Projects
                 .Where(p => p.UserId == teamLeadUserId
@@ -236,20 +231,19 @@ namespace Infrastructure.EWS.Repositories
                     TaskCount = _context.Tasks.Count(t => t.ProjectId == p.Id && !t.IsDeleted),
                 })
                 .OrderByDescending(x => x.TaskCount)
-                .Take(take)
+                .Take(5)
                 .AsNoTracking()
                 .ToListAsync();
         }
 
-        public async Task<List<GetProjectResponse>> GetRecentlyCompletedProjectsAsync(
-            int teamLeadUserId, int take = 5)
+        public async Task<List<GetProjectResponse>> GetRecentlyCompletedProjectsAsync(int teamLeadUserId)
         {
             return await _context.Projects
                 .Where(p => p.UserId == teamLeadUserId
                          && !p.IsDeleted
                          && p.ProjectStatus == ProjectStatus.Completed)
                 .OrderByDescending(p => p.UpdatedAt)
-                .Take(take)
+                .Take(5)
                 .Select(p => new GetProjectResponse
                 {
                     Id = p.Id,
