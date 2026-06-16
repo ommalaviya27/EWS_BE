@@ -12,8 +12,6 @@ namespace Infrastructure.EWS.Repositories
     public class AdminDashboardRepository(EWSDbContext context)
         : GenericRepository<User>(context), IAdminDashboardRepository
     {
-        private const int DashboardListSize = 5;
-
         public async Task<AdminDashboardResponse> GetDashboardAsync()
         {
             var now = DateTime.UtcNow;
@@ -35,7 +33,7 @@ namespace Infrastructure.EWS.Repositories
                          && p.EndDate < now
                          && p.ProjectStatus != ProjectStatus.Completed)
                 .OrderBy(p => p.EndDate)
-                .Take(DashboardListSize)
+                .Take(5)
                 .Select(p => new GetProjectResponse
                 {
                     Id = p.Id,
@@ -51,7 +49,7 @@ namespace Infrastructure.EWS.Repositories
             var recentCompletedProjects = await _context.Projects
                 .Where(p => !p.IsDeleted && p.ProjectStatus == ProjectStatus.Completed)
                 .OrderByDescending(p => p.UpdatedAt)
-                .Take(DashboardListSize)
+                .Take(5)
                 .Select(p => new GetProjectResponse
                 {
                     Id = p.Id,
@@ -69,7 +67,7 @@ namespace Infrastructure.EWS.Repositories
                          && t.DueDate < now
                          && t.TaskStatus != TaskStatuses.Completed)
                 .OrderBy(t => t.DueDate)
-                .Take(DashboardListSize)
+                .Take(5)
                 .Select(t => new GetTaskResponse
                 {
                     Id = t.Id,
@@ -79,8 +77,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
                     AssignedToUserName = t.AssignedTo != null ? t.AssignedTo.Name : string.Empty,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate

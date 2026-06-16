@@ -12,6 +12,7 @@ using Shared.EWS.Interfaces.Services;
 using Shared.EWS.Services;
 using System.Security.Claims;
 using Domain.EWS.DataModels.Response.Project;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Application.EWS.Services
 {
@@ -34,7 +35,7 @@ namespace Application.EWS.Services
             var counts = await _myTaskRepository.GetEmployeeDashboardCountsAsync(CurrentUserId);
 
             var upcomingDeadlines = await _myTaskRepository.GetUpcomingDeadlineTasksAsync(CurrentUserId, 5);
-            var onHoldTasks = await _myTaskRepository.GetOnHoldActiveProjectTasksAsync(CurrentUserId, 5);
+            var onHoldTasks = await _myTaskRepository.GetOnHoldProjectTasksAsync(CurrentUserId, 5);
             var completedTasks = await _myTaskRepository.GetRecentCompletedTasksAsync(CurrentUserId, 5);
             var overdueTasks = await _myTaskRepository.GetOverdueTasksAsync(CurrentUserId, 5);
 
@@ -256,7 +257,7 @@ namespace Application.EWS.Services
                 pagedAttachments.PageSize);
         }
 
-        public async Task<Microsoft.AspNetCore.Http.HttpResults.FileContentHttpResult> DownloadAttachmentAsync(int attachmentId)
+        public async Task<FileContentHttpResult> DownloadAttachmentAsync(int attachmentId)
         {
             var attachment = await _myTaskRepository.GetAttachmentWithTaskAsync(attachmentId)
                 ?? throw new NotFoundException($"Attachment with id '{attachmentId}' was not found.");

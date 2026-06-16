@@ -92,8 +92,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectId = t.ProjectId,
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -103,7 +101,7 @@ namespace Infrastructure.EWS.Repositories
         }
 
 
-        public async Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5)
+        public async Task<List<GetTaskResponse>> GetOnHoldProjectTasksAsync(int userId, int take = 5)
         {
             return await _context.Tasks
                 .Where(t => t.AssignedToUserId == userId
@@ -121,8 +119,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectId = t.ProjectId,
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -147,8 +143,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectId = t.ProjectId,
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -176,8 +170,6 @@ namespace Infrastructure.EWS.Repositories
                     ProjectId = t.ProjectId,
                     ProjectName = t.Project != null ? t.Project.Name : string.Empty,
                     AssignedToUserId = t.AssignedToUserId,
-                    AssignedByUserId = t.AssignedByUserId,
-                    AssignedByUserName = t.AssignedBy != null ? t.AssignedBy.Name : string.Empty,
                     TaskStatus = t.TaskStatus,
                     Priority = t.Priority,
                     DueDate = t.DueDate,
@@ -202,11 +194,11 @@ namespace Infrastructure.EWS.Repositories
                 .Where(p => projectIds.Contains(p.Id) && !p.IsDeleted)
                 .AsQueryable();
 
+            var totalCount = await query.CountAsync();
+
             var search = request.Search?.Trim();
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(p => EF.Functions.ILike(p.Name, $"%{search}%"));
-
-            var totalCount = await query.CountAsync();
 
             var items = await query
                 .OrderBy(p => p.Name)

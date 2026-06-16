@@ -18,13 +18,13 @@ namespace Infrastructure.EWS.Repositories
                 .Where(p => !p.IsDeleted)
                 .Select(p => new GetProjectResponse
                 {
-                    Id            = p.Id,
-                    Name          = p.Name,
-                    Description   = p.Description,
-                    UserId        = p.UserId,
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    UserId = p.UserId,
                     ProjectStatus = p.ProjectStatus,
-                    StartDate     = p.StartDate,
-                    EndDate       = p.EndDate
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate
                 })
                 .AsNoTracking();
 
@@ -82,7 +82,7 @@ namespace Infrastructure.EWS.Repositories
                 .Select(u => new TeamLeaderResponse
                 {
                     UserId = u.Id,
-                    Name   = u.Name
+                    Name = u.Name
                 })
                 .ToListAsync();
         }

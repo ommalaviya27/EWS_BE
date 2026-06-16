@@ -12,7 +12,6 @@ namespace Domain.EWS.Interface
         Task<bool> EmailExistsAsync(string email, int? excludeId = null);
         Task<bool> RoleExistsAsync(int roleId);
         Task<bool> TeamLeadExistsAsync(int teamLeadId);
-        Task<User?> GetByEmailAsync(string email);
         Task<IEnumerable<RoleResponse>> GetRolesAsync();
         Task<string?> GetRoleNameAsync(int roleId);
         Task<string?> GetTeamLeadNameAsync(int teamLeadId);

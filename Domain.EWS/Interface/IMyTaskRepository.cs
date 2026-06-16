@@ -15,7 +15,7 @@ namespace Domain.EWS.Interface
         Task<PagedResponse<Tasks>> GetTasksWithDetailsByUserAsync(int userId, MyTaskSearchRequest request, Guid? projectId);
         Task<EmployeeDashboardResponse> GetEmployeeDashboardCountsAsync(int userId);
         Task<List<GetTaskResponse>> GetUpcomingDeadlineTasksAsync(int userId, int take = 5);
-        Task<List<GetTaskResponse>> GetOnHoldActiveProjectTasksAsync(int userId, int take = 5);
+        Task<List<GetTaskResponse>> GetOnHoldProjectTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetRecentCompletedTasksAsync(int userId, int take = 5);
         Task<List<GetTaskResponse>> GetOverdueTasksAsync(int userId, int take = 5);
         Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(int userId, MyProjectListRequest request);

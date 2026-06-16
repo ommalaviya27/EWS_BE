@@ -46,24 +46,24 @@ namespace Application.EWS.Services
 
             var entity = new User
             {
-                Name         = request.Name.Trim(),
-                Email        = request.Email.Trim().ToLower(),
+                Name = request.Name.Trim(),
+                Email = request.Email.Trim().ToLower(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber.Trim(),
-                RoleId       = request.RoleId,
-                TeamLeadId   = request.TeamLeadId,
-                status       = request.Status
+                RoleId = request.RoleId,
+                TeamLeadId = request.TeamLeadId,
+                status = request.Status
             };
 
             var created = await AddAsync(entity);
 
-            var roleName     = await _userRepository.GetRoleNameAsync(created.RoleId);
+            var roleName = await _userRepository.GetRoleNameAsync(created.RoleId);
             string? teamLeadName = created.TeamLeadId.HasValue
                 ? await _userRepository.GetTeamLeadNameAsync(created.TeamLeadId.Value)
                 : null;
 
             var response = _mapper.Map<GetUserResponse>(created);
-            response.RoleName     = roleName ?? string.Empty;
+            response.RoleName = roleName ?? string.Empty;
             response.TeamLeadName = teamLeadName;
             return response;
         }
@@ -83,22 +83,22 @@ namespace Application.EWS.Services
             if (await _userRepository.EmailExistsAsync(request.Email, id))
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
 
-            user.Name        = request.Name.Trim();
-            user.Email       = request.Email.Trim().ToLower();
-            user.MobileNumber= request.MobileNumber.Trim();
-            user.RoleId      = request.RoleId;
-            user.TeamLeadId  = request.TeamLeadId;
-            user.status      = request.Status;
+            user.Name = request.Name.Trim();
+            user.Email = request.Email.Trim().ToLower();
+            user.MobileNumber = request.MobileNumber.Trim();
+            user.RoleId = request.RoleId;
+            user.TeamLeadId = request.TeamLeadId;
+            user.status = request.Status;
 
             var updated = await UpdateAsync(user);
 
-            var roleName     = await _userRepository.GetRoleNameAsync(updated.RoleId);
+            var roleName = await _userRepository.GetRoleNameAsync(updated.RoleId);
             string? teamLeadName = updated.TeamLeadId.HasValue
                 ? await _userRepository.GetTeamLeadNameAsync(updated.TeamLeadId.Value)
                 : null;
 
             var response = _mapper.Map<GetUserResponse>(updated);
-            response.RoleName     = roleName ?? string.Empty;
+            response.RoleName = roleName ?? string.Empty;
             response.TeamLeadName = teamLeadName;
             return response;
         }
