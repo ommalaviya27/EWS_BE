@@ -43,13 +43,12 @@ namespace Application.EWS.Profiles
                 .ForMember(d => d.RoleName, o => o.Ignore());
 
             CreateMap<Attendance, AttendanceResponse>()
-                .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty))
-                .ForMember(d => d.ReviewerName, o => o.MapFrom(s => s.Reviewer != null ? s.Reviewer.Name : null));
+                .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty));
 
             CreateMap<LeaveApplication, LeaveResponse>()
                 .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty))
-                .ForMember(d => d.ReviewerName, o => o.MapFrom(s => s.Reviewer != null ? s.Reviewer.Name : null))
-                .ForMember(d => d.CanEdit, o => o.Ignore());
+                .ForMember(d => d.CanEdit, o => o.Ignore())
+                .ForMember(d => d.CanDelete, o => o.Ignore());
         }
     }
 }

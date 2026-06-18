@@ -10,6 +10,7 @@ using Shared.EWS.Enums;
 using Shared.EWS.Exceptions;
 using Shared.EWS.Services;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace Application.EWS.Services
 {
@@ -18,6 +19,7 @@ namespace Application.EWS.Services
         IAttendanceRepository attendanceRepository,
         IMapper mapper,
         IEmailService emailService,
+        ILogger<LeaveService> logger,
         ClaimsPrincipal principal)
         : GenericService<LeaveApplication>(repository, principal), ILeaveService
     {
@@ -25,6 +27,7 @@ namespace Application.EWS.Services
         private readonly IAttendanceRepository _attendanceRepository = attendanceRepository;
         private readonly IMapper _mapper = mapper;
         private readonly IEmailService _emailService = emailService;
+        private readonly ILogger<LeaveService> _logger = logger;
 
         private bool IsAdmin => CurrentRoleId == 1;
         private bool IsTeamLead => CurrentRoleId == 2;
@@ -100,8 +103,17 @@ namespace Application.EWS.Services
             if (leave.UserId != CurrentUserId)
                 throw new ForbiddenException("You can only edit your own leave applications.");
 
-            if (leave.LeaveStatus != ApprovalStatus.Pending)
-                throw new InvalidOperationException("Only pending leave applications can be edited.");
+            if (leave.LeaveStatus == ApprovalStatus.Approved)
+                throw new InvalidOperationException(
+                    "Leave can not be edited as approved. Contact your RO for update.");
+
+            if (leave.LeaveStatus == ApprovalStatus.Rejected)
+                throw new InvalidOperationException(
+                    "Leave can not be edited as it has been rejected.");
+
+            var todayUtc = DateTime.UtcNow.Date;
+            if (leave.StartDate.Date < todayUtc)
+                throw new InvalidOperationException("Only future leave applications can be edited.");
 
             var startDate = DateTime.SpecifyKind(request.StartDate.Date, DateTimeKind.Utc);
             var endDate = DateTime.SpecifyKind(request.EndDate.Date, DateTimeKind.Utc);
@@ -183,7 +195,14 @@ namespace Application.EWS.Services
                             leave.StartDate, leave.EndDate,
                             leave.LeaveType.ToString(), request.ReviewerRemark);
                 }
-                catch { /* swallow — email must not fail the response */ }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to send leave review email for LeaveId {LeaveId}, UserId {UserId}",
+                        leave.Id,
+                        leave.User?.Id);
+                }
             });
 
             var reviewed = await _leaveRepository.GetWithDetailsAsync(id)
@@ -192,11 +211,40 @@ namespace Application.EWS.Services
             return MapToResponse(reviewed);
         }
 
+        public async Task DeleteAsync(int id)
+        {
+            var leave = await _leaveRepository.GetWithDetailsAsync(id)
+                ?? throw new NotFoundException($"Leave application with id '{id}' was not found.");
+
+            await AuthorizeDeleteAsync(leave);
+
+            if (leave.LeaveStatus == ApprovalStatus.Rejected)
+                throw new InvalidOperationException(
+                    "Leave can not be deleted as it has been rejected.");
+
+            var todayUtc = DateTime.UtcNow.Date;
+            if (leave.StartDate.Date < todayUtc)
+                throw new InvalidOperationException(
+                    "Only future leave applications can be deleted.");
+
+            if (leave.LeaveStatus == ApprovalStatus.Approved)
+            {
+                var attendances = await _leaveRepository.GetAutoPlacedAttendancesAsync(
+                    leave.UserId, leave.StartDate, leave.EndDate);
+
+                var futureAttendances = attendances
+                    .Where(a => a.AttendanceDate.Date > todayUtc)
+                    .ToList();
+
+                if (futureAttendances.Count > 0)
+                    await SoftDeleteAttendancesAsync(futureAttendances);
+            }
+
+            await _repository.DeleteAsync(id);
+        }
+
         private static void ValidateDates(DateTime startDate, DateTime endDate, LeaveType leaveType)
         {
-            if (startDate < DateTime.UtcNow.Date)
-                throw new InvalidOperationException("Leave start date cannot be in the past.");
-
             if (endDate < startDate)
                 throw new InvalidOperationException("End date cannot be before start date.");
 
@@ -206,7 +254,7 @@ namespace Application.EWS.Services
             var hasWeekday = false;
             for (var d = startDate; d <= endDate; d = d.AddDays(1))
             {
-                if (d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday)
+                if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday)
                 {
                     hasWeekday = true;
                     break;
@@ -215,7 +263,7 @@ namespace Application.EWS.Services
 
             if (!hasWeekday)
                 throw new InvalidOperationException(
-                    "Leave cannot be applied on weekends. Please select at least one working day.");
+                    "Leave cannot be applied on weekends.");
         }
 
         private async Task PlaceAbsentAttendanceAsync(LeaveApplication leave)
@@ -226,22 +274,43 @@ namespace Application.EWS.Services
                 if (utcDate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
                     continue;
 
-                if (await _attendanceRepository.ExistsForDateAsync(leave.UserId, utcDate))
-                    continue;
+                var status = leave.LeaveType == LeaveType.HalfDay
+                    ? AttendanceStatus.HalfDay_WFO
+                    : AttendanceStatus.Absent;
+                var remark = $"Auto-placed: Leave approved (Id: {leave.Id})";
 
-                await _attendanceRepository.AddAsync(new Attendance
+                var existing = await _leaveRepository.GetForDateIncludingDeletedAsync(leave.UserId, utcDate);
+                if (existing != null)
                 {
-                    UserId = leave.UserId,
-                    AttendanceDate = utcDate,
-                    Status = leave.LeaveType == LeaveType.HalfDay
-                        ? AttendanceStatus.HalfDay_WFO
-                        : AttendanceStatus.Absent,
-                    ApprovalStatus = ApprovalStatus.Approved,
-                    ReviewerId = CurrentUserId,
-                    ReviewedAt = DateTime.UtcNow,
-                    ReviewerRemark = $"Auto-placed: Leave approved (Id: {leave.Id})"
-                });
+                    existing.IsDeleted = false;
+                    existing.Status = status;
+                    existing.ApprovalStatus = ApprovalStatus.Approved;
+                    existing.ReviewerId = CurrentUserId;
+                    existing.ReviewedAt = DateTime.UtcNow;
+                    existing.ReviewerRemark = remark;
+                    await _attendanceRepository.UpdateAsync(existing);
+                    continue;
+                }
+                else
+                {
+                    await _attendanceRepository.AddAsync(new Attendance
+                    {
+                        UserId = leave.UserId,
+                        AttendanceDate = utcDate,
+                        Status = status,
+                        ApprovalStatus = ApprovalStatus.Approved,
+                        ReviewerId = CurrentUserId,
+                        ReviewedAt = DateTime.UtcNow,
+                        ReviewerRemark = remark
+                    });
+                }
             }
+        }
+
+        private async Task SoftDeleteAttendancesAsync(List<Attendance> attendances)
+        {
+            foreach (var attendance in attendances)
+                await _attendanceRepository.DeleteAsync(attendance.Id);
         }
 
         private async Task AuthorizeViewAsync(LeaveApplication leave)
@@ -257,10 +326,35 @@ namespace Application.EWS.Services
             throw new ForbiddenException("You do not have access to this leave application.");
         }
 
+        private async Task AuthorizeDeleteAsync(LeaveApplication leave)
+        {
+            if (IsAdmin) return;
+
+            if (leave.UserId == CurrentUserId) return;
+
+            if (IsTeamLead)
+            {
+                var memberIds = await _leaveRepository.GetTeamMemberIdsAsync(CurrentUserId);
+                if (memberIds.Contains(leave.UserId)) return;
+            }
+
+            throw new ForbiddenException("You do not have permission to delete this leave application.");
+        }
+
         private LeaveResponse MapToResponse(LeaveApplication leave)
         {
             var response = _mapper.Map<LeaveResponse>(leave);
-            response.CanEdit = leave.UserId == CurrentUserId && leave.LeaveStatus == ApprovalStatus.Pending;
+            var isOwner = leave.UserId == CurrentUserId;
+            var isFuture = leave.StartDate.Date >= DateTime.UtcNow.Date;
+
+            response.CanEdit = isOwner
+                && leave.LeaveStatus == ApprovalStatus.Pending
+                && isFuture;
+
+            response.CanDelete = isOwner
+                && leave.LeaveStatus != ApprovalStatus.Rejected
+                && isFuture;
+
             return response;
         }
     }

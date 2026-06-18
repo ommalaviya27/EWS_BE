@@ -21,7 +21,7 @@ namespace Api.EWS.Controllers
         }
 
         [HttpGet("my-leaves")]
-        public async Task<IActionResult> GetMy([FromQuery] PaginationRequest pagination)
+        public async Task<IActionResult> GetMyLeaves([FromQuery] PaginationRequest pagination)
         {
             var result = await leaveService.GetMyLeavesAsync(pagination);
             return Ok(ResponseHelper.SuccessResponse(result, "Leave applications fetched successfully."));
@@ -56,6 +56,13 @@ namespace Api.EWS.Controllers
         {
             var result = await leaveService.ReviewAsync(id, request);
             return Ok(ResponseHelper.SuccessResponse(result, "Leave application reviewed successfully."));
+        }
+
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await leaveService.DeleteAsync(id);
+            return Ok(ResponseHelper.SuccessResponse<object>(null, "Leave application deleted successfully."));
         }
     }
 }

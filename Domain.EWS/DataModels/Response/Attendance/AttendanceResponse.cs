@@ -12,12 +12,6 @@ namespace Domain.EWS.DataModels.Response.Attendance
         public string StatusDisplay => Status.ToString().Replace("_", " ");
         public ApprovalStatus ApprovalStatus { get; set; }
         public string ApprovalStatusDisplay => ApprovalStatus.ToString();
-        public int? ReviewerId { get; set; }
-        public string? ReviewerName { get; set; }
-        public string? ReviewerRemark { get; set; }
-        public DateTime? ReviewedAt { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
     }
 
     public class AttendanceDayResponse
@@ -32,6 +26,7 @@ namespace Domain.EWS.DataModels.Response.Attendance
         public ApprovalStatus? ApprovalStatus { get; set; }
         public string? ApprovalStatusDisplay => ApprovalStatus?.ToString();
         public bool IsAutoAbsent { get; set; }
+        public bool CanEdit { get; set; }
     }
 
     public class AttendanceMonthResponse

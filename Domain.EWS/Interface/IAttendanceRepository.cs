@@ -1,4 +1,3 @@
-using Domain.EWS.DataModels.Request.Attendance;
 using Shared.EWS.DataModel.Request;
 using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
@@ -13,5 +12,6 @@ namespace Domain.EWS.Interface
         Task<bool> ExistsForDateAsync(int userId, DateTime date, int? excludeId = null);
         Task<List<int>> GetTeamMemberIdsAsync(int teamLeadId);
         Task<PagedResponse<Attendance>> GetPendingForReviewAsync(int reviewerId, bool isAdmin, PaginationRequest pagination);
+        Task<DateTime?> GetUserJoinDateAsync(int userId);
     }
 }
