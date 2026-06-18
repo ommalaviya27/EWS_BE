@@ -192,7 +192,9 @@ namespace Shared.EWS.Data
                  .WithMany()
                  .HasForeignKey(x => x.ReviewerId)
                  .OnDelete(DeleteBehavior.Restrict);
-                b.HasIndex(x => new { x.UserId, x.AttendanceDate }).IsUnique();
+                b.HasIndex(x => new { x.UserId, x.AttendanceDate })
+                 .IsUnique()
+                 .HasFilter("is_deleted = false");
                 b.HasIndex(x => x.UserId);
                 b.HasIndex(x => x.AttendanceDate);
             });

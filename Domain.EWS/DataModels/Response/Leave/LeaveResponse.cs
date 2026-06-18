@@ -15,9 +15,9 @@ namespace Domain.EWS.DataModels.Response.Leave
         public ApprovalStatus LeaveStatus { get; set; }
         public string LeaveStatusDisplay => LeaveStatus.ToString();
         public int? ReviewerId { get; set; }
-        public string? ReviewerName { get; set; }
         public string? ReviewerRemark { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public bool CanEdit { get; set; }
+        public bool CanDelete { get; set; }
     }
 }

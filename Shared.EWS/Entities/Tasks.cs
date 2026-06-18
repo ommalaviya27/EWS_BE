@@ -14,7 +14,6 @@ namespace Shared.EWS.Entities
         public TaskPriority Priority { get; set; } = TaskPriority.Medium;
         public DateTime DueDate { get; set; }
 
-        // Navigation
         public Projects? Project { get; set; }
         public User? AssignedTo { get; set; }
         public User? AssignedBy { get; set; }

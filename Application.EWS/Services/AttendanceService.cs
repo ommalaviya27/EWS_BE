@@ -11,6 +11,7 @@ using Shared.EWS.Exceptions;
 using Shared.EWS.Services;
 using System.Globalization;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace Application.EWS.Services
 {
@@ -18,12 +19,14 @@ namespace Application.EWS.Services
         IAttendanceRepository repository,
         IMapper mapper,
         IEmailService emailService,
+        ILogger<LeaveService> logger,
         ClaimsPrincipal principal)
         : GenericService<Attendance>(repository, principal), IAttendanceService
     {
         private readonly IAttendanceRepository _attendanceRepository = repository;
         private readonly IMapper _mapper = mapper;
         private readonly IEmailService _emailService = emailService;
+        private readonly ILogger<LeaveService> _logger = logger;
 
         private bool IsAdmin => CurrentRoleId == 1;
         private bool IsTeamLead => CurrentRoleId == 2;
@@ -70,6 +73,9 @@ namespace Application.EWS.Services
                 targetUserId = request.UserId ?? CurrentUserId;
             }
 
+            var joinDate = await _attendanceRepository.GetUserJoinDateAsync(targetUserId)
+                           ?? DateTime.SpecifyKind(new DateTime(request.Year, request.Month, 1), DateTimeKind.Utc);
+
             var records = await _attendanceRepository.GetMonthlyAsync(targetUserId, request.Month, request.Year);
 
             var recordMap = records.ToDictionary(r => r.AttendanceDate.Day);
@@ -93,22 +99,46 @@ namespace Application.EWS.Services
             int presentCount = 0;
             int absentCount = 0;
 
+            bool isViewingOwnCalendar = targetUserId == CurrentUserId;
+
             for (int d = 1; d <= daysInMonth; d++)
             {
                 var date = new DateTime(request.Year, request.Month, d, 0, 0, 0, DateTimeKind.Utc);
                 var dow = date.DayOfWeek;
                 bool isWeekend = dow == DayOfWeek.Saturday || dow == DayOfWeek.Sunday;
 
+                bool isBeforeJoining = date.Date < joinDate.Date;
+
                 recordMap.TryGetValue(d, out var rec);
 
-                if (rec != null)
+                if (!isBeforeJoining)
                 {
-                    if (rec.Status == AttendanceStatus.Absent) absentCount++;
-                    else presentCount++;
+                    if (rec != null)
+                    {
+                        if (rec.Status == AttendanceStatus.Absent) absentCount++;
+                        else presentCount++;
+                    }
+                    else if (!isWeekend && date.Date < today)
+                    {
+                        absentCount++;
+                    }
                 }
-                else if (!isWeekend && date.Date < today)
+
+                bool isToday = date.Date == today;
+                bool canEdit;
+
+                if (isWeekend)
                 {
-                    absentCount++;
+                    canEdit = false;
+                }
+                else if (isViewingOwnCalendar)
+                {
+                    canEdit = isToday
+                              && rec?.ApprovalStatus != ApprovalStatus.Approved;
+                }
+                else
+                {
+                    canEdit = date.Date < today;
                 }
 
                 days.Add(new AttendanceDayResponse
@@ -116,11 +146,12 @@ namespace Application.EWS.Services
                     Day = d,
                     DayName = DowAbbr(dow),
                     IsWeekend = isWeekend,
-                    IsToday = date.Date == today,
+                    IsToday = isToday,
                     AttendanceId = rec?.Id,
                     Status = rec?.Status,
                     ApprovalStatus = rec?.ApprovalStatus,
-                    IsAutoAbsent = rec == null && !isWeekend && date.Date < today
+                    IsAutoAbsent = !isBeforeJoining && rec == null && !isWeekend && date.Date < today,
+                    CanEdit = canEdit
                 });
             }
 
@@ -323,9 +354,13 @@ namespace Application.EWS.Services
                             attendance.AttendanceDate,
                             request.ReviewerRemark);
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Silently swallow email errors so the review response is unaffected
+                        _logger.LogError(
+                            ex,
+                            "Failed to send attendance rejection email for AttendanceId {AttendanceId}, UserId {UserId}",
+                            attendance.Id,
+                            attendance.UserId);
                     }
                 });
             }

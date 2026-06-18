@@ -20,10 +20,10 @@ namespace Shared.EWS.Helpers
         {
             return new ApiResponse<T>
             {
-                IsSuccess   = true,
-                Data        = data,
-                StatusCode  = (int)statusCode,
-                Message     = message,
+                IsSuccess = true,
+                Data = data,
+                StatusCode = (int)statusCode,
+                Message = message,
                 ErrorMessages = new List<string>()
             };
         }
@@ -36,10 +36,10 @@ namespace Shared.EWS.Helpers
         {
             return new ApiResponse<T>
             {
-                IsSuccess     = false,
-                Data          = data,
-                StatusCode    = (int)statusCode,
-                Message       = message,
+                IsSuccess = false,
+                Data = data,
+                StatusCode = (int)statusCode,
+                Message = message,
                 ErrorMessages = errorMessages ?? new List<string> { message }
             };
         }

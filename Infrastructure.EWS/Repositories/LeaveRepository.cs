@@ -97,5 +97,28 @@ namespace Infrastructure.EWS.Repositories
                 .Select(u => u.Id)
                 .ToListAsync();
         }
+
+        public async Task<List<Attendance>> GetAutoPlacedAttendancesAsync(
+            int userId, DateTime startDate, DateTime endDate)
+        {
+            return await _context.Attendances
+                .Where(a => a.UserId == userId
+                         && a.AttendanceDate >= startDate
+                         && a.AttendanceDate <= endDate
+                         && !a.IsDeleted)
+                .ToListAsync();
+        }
+
+        public async Task<Attendance?> GetForDateIncludingDeletedAsync(int userId, DateTime date)
+        {
+            var dayStart = date.Date.ToUniversalTime();
+            var dayEnd = dayStart.AddDays(1);
+
+            return await _context.Attendances
+                .Where(a => a.UserId == userId
+                         && a.AttendanceDate >= dayStart
+                         && a.AttendanceDate < dayEnd)
+                .FirstOrDefaultAsync();
+        }
     }
 }

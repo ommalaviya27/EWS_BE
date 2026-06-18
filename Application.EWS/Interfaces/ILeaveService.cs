@@ -15,5 +15,6 @@ namespace Application.EWS.Interfaces
         Task<LeaveResponse> ApplyAsync(ApplyLeaveRequest request);
         Task<LeaveResponse> EditAsync(int id, EditLeaveRequest request);
         Task<LeaveResponse> ReviewAsync(int id, ReviewLeaveRequest request);
+        Task DeleteAsync(int id);
     }
 }

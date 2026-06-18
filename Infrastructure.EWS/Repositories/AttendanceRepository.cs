@@ -99,5 +99,17 @@ namespace Infrastructure.EWS.Repositories
 
             return PagedResponse<Attendance>.Create(items, totalCount, pagination.PageNumber, pagination.PageSize);
         }
+
+        public async Task<DateTime?> GetUserJoinDateAsync(int userId)
+        {
+            var createdAt = await _context.Users
+                .Where(u => u.Id == userId && !u.IsDeleted)
+                .Select(u => (DateTime?)u.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            return createdAt.HasValue
+                ? DateTime.SpecifyKind(createdAt.Value.Date, DateTimeKind.Utc)
+                : null;
+        }
     }
 }
