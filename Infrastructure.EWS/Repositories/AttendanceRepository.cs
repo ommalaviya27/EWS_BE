@@ -1,4 +1,3 @@
-using Domain.EWS.DataModels.Request.Attendance;
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
@@ -110,6 +109,15 @@ namespace Infrastructure.EWS.Repositories
             return createdAt.HasValue
                 ? DateTime.SpecifyKind(createdAt.Value.Date, DateTimeKind.Utc)
                 : null;
+        }
+
+        public async Task<bool> IsPublicHolidayAsync(DateTime date)
+        {
+            var dayStart = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            var dayEnd = dayStart.AddDays(1);
+
+            return await _context.PublicHolidays
+                .AnyAsync(h => h.HolidayDate >= dayStart && h.HolidayDate < dayEnd && !h.IsDeleted);
         }
     }
 }

@@ -27,6 +27,8 @@ namespace Domain.EWS.DataModels.Response.Attendance
         public string? ApprovalStatusDisplay => ApprovalStatus?.ToString();
         public bool IsAutoAbsent { get; set; }
         public bool CanEdit { get; set; }
+        public bool IsPublicHoliday { get; set; }
+        public string? HolidayName { get; set; }
     }
 
     public class AttendanceMonthResponse
