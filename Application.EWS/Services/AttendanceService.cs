@@ -17,6 +17,7 @@ namespace Application.EWS.Services
 {
     public class AttendanceService(
         IAttendanceRepository repository,
+        IPublicHolidayRepository publicHolidayRepository,
         IMapper mapper,
         IEmailService emailService,
         ILogger<LeaveService> logger,
@@ -24,6 +25,7 @@ namespace Application.EWS.Services
         : GenericService<Attendance>(repository, principal), IAttendanceService
     {
         private readonly IAttendanceRepository _attendanceRepository = repository;
+        private readonly IPublicHolidayRepository _publicHolidayRepository = publicHolidayRepository;
         private readonly IMapper _mapper = mapper;
         private readonly IEmailService _emailService = emailService;
         private readonly ILogger<LeaveService> _logger = logger;
@@ -78,6 +80,9 @@ namespace Application.EWS.Services
 
             var records = await _attendanceRepository.GetMonthlyAsync(targetUserId, request.Month, request.Year);
 
+            var holidays = await _publicHolidayRepository.GetHolidaysForMonthAsync(request.Month, request.Year);
+            var holidayMap = holidays.ToDictionary(h => h.HolidayDate.Day, h => h.Name);
+
             var recordMap = records.ToDictionary(r => r.AttendanceDate.Day);
 
             var today = DateTime.UtcNow.Date;
@@ -106,7 +111,7 @@ namespace Application.EWS.Services
                 var date = new DateTime(request.Year, request.Month, d, 0, 0, 0, DateTimeKind.Utc);
                 var dow = date.DayOfWeek;
                 bool isWeekend = dow == DayOfWeek.Saturday || dow == DayOfWeek.Sunday;
-
+                bool isPublicHoliday = holidayMap.TryGetValue(d, out var holidayName);
                 bool isBeforeJoining = date.Date < joinDate.Date;
 
                 recordMap.TryGetValue(d, out var rec);
@@ -118,7 +123,7 @@ namespace Application.EWS.Services
                         if (rec.Status == AttendanceStatus.Absent) absentCount++;
                         else presentCount++;
                     }
-                    else if (!isWeekend && date.Date < today)
+                    else if (!isWeekend && !isPublicHoliday && date.Date < today)
                     {
                         absentCount++;
                     }
@@ -127,7 +132,7 @@ namespace Application.EWS.Services
                 bool isToday = date.Date == today;
                 bool canEdit;
 
-                if (isWeekend)
+                if (isWeekend || isPublicHoliday)
                 {
                     canEdit = false;
                 }
@@ -150,8 +155,10 @@ namespace Application.EWS.Services
                     AttendanceId = rec?.Id,
                     Status = rec?.Status,
                     ApprovalStatus = rec?.ApprovalStatus,
-                    IsAutoAbsent = !isBeforeJoining && rec == null && !isWeekend && date.Date < today,
-                    CanEdit = canEdit
+                    IsAutoAbsent = !isBeforeJoining && rec == null && !isWeekend && !isPublicHoliday && date.Date < today,
+                    CanEdit = canEdit,
+                    IsPublicHoliday = isPublicHoliday,
+                    HolidayName = isPublicHoliday ? holidayName : null,
                 });
             }
 
@@ -173,8 +180,10 @@ namespace Application.EWS.Services
 
         public async Task<AttendanceResponse> AddAsync(AddAttendanceRequest request)
         {
-
             var today = DateTime.UtcNow.Date;
+
+            if (await _attendanceRepository.IsPublicHolidayAsync(today))
+                throw new InvalidOperationException("Today is a public holiday. Attendance cannot be submitted.");
 
             var duplicate = await _attendanceRepository.ExistsForDateAsync(CurrentUserId, today);
             if (duplicate)
@@ -219,6 +228,10 @@ namespace Application.EWS.Services
                 throw new InvalidOperationException(
                     "Today's and future attendance cannot be filled. Everyone can only fill their attendance for today.");
 
+            if (await _attendanceRepository.IsPublicHolidayAsync(targetDate))
+                throw new InvalidOperationException(
+                    $"Attendance cannot be filled for {targetDate:yyyy-MM-dd} as it is a public holiday.");
+
             var duplicate = await _attendanceRepository.ExistsForDateAsync(request.UserId, targetDate);
             if (duplicate)
                 throw new DuplicateRecordException(
@@ -245,6 +258,10 @@ namespace Application.EWS.Services
         public async Task<AttendanceResponse> EditAsync(int id, EditAttendanceRequest request)
         {
             var attendance = await GetAttendanceOrThrowAsync(id);
+
+            if (await _attendanceRepository.IsPublicHolidayAsync(attendance.AttendanceDate))
+                throw new InvalidOperationException(
+                    $"Attendance on {attendance.AttendanceDate:yyyy-MM-dd} is a public holiday and cannot be edited.");
 
             if (IsAdmin)
             {
@@ -322,6 +339,10 @@ namespace Application.EWS.Services
 
             var attendance = await _attendanceRepository.GetWithDetailsAsync(id)
                 ?? throw new NotFoundException($"Attendance record with id '{id}' was not found.");
+
+            if (await _attendanceRepository.IsPublicHolidayAsync(attendance.AttendanceDate))
+                throw new InvalidOperationException(
+                    $"Attendance on {attendance.AttendanceDate:yyyy-MM-dd} is a public holiday and cannot be reviewed.");
 
             if (attendance.ApprovalStatus != ApprovalStatus.Pending)
                 throw new InvalidOperationException(

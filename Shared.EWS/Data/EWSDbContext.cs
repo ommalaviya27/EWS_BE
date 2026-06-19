@@ -20,6 +20,7 @@ namespace Shared.EWS.Data
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<LeaveApplication> LeaveApplications { get; set; }
+        public DbSet<PublicHoliday> PublicHolidays { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -223,6 +224,16 @@ namespace Shared.EWS.Data
                  .OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(x => x.UserId);
                 b.HasIndex(x => x.StartDate);
+            });
+
+            modelBuilder.Entity<PublicHoliday>(b =>
+            {
+                b.ToTable("public_holidays");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasColumnName("holiday_id").UseIdentityColumn();
+                b.Property(x => x.HolidayDate).HasColumnName("holiday_date").IsRequired();
+                b.Property(x => x.Name).HasColumnName("holiday_name").HasMaxLength(200).IsRequired();
+                b.HasIndex(x => x.HolidayDate).IsUnique().HasFilter("is_deleted = false");
             });
         }
     }

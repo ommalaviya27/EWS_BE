@@ -1,5 +1,6 @@
 using AutoMapper;
 using Domain.EWS.DataModels.Response.Attendance;
+using Domain.EWS.DataModels.Response.PublicHoliday;
 using Domain.EWS.DataModels.Response.Leave;
 using Domain.EWS.DataModels.Response.Profile;
 using Domain.EWS.DataModels.Response.Project;
@@ -49,6 +50,8 @@ namespace Application.EWS.Profiles
                 .ForMember(d => d.UserName, o => o.MapFrom(s => s.User != null ? s.User.Name : string.Empty))
                 .ForMember(d => d.CanEdit, o => o.Ignore())
                 .ForMember(d => d.CanDelete, o => o.Ignore());
+
+            CreateMap<PublicHoliday, HolidayResponse>();
         }
     }
 }

@@ -23,6 +23,7 @@ namespace Api.EWS.Extensions
             services.AddScoped<IReportService, ReportService>();
             services.AddScoped<IAttendanceService, AttendanceService>();
             services.AddScoped<ILeaveService, LeaveService>();
+            services.AddScoped<IPublicHolidayService, PublicHolidayService>();
         }
 
         public static void RegisterRepositories(this IServiceCollection services)
@@ -38,6 +39,7 @@ namespace Api.EWS.Extensions
             services.AddScoped<IReportRepository, ReportRepository>();
             services.AddScoped<IAttendanceRepository, AttendanceRepository>();
             services.AddScoped<ILeaveRepository, LeaveRepository>();
+            services.AddScoped<IPublicHolidayRepository, PublicHolidayRepository>();
         }
     }
 }

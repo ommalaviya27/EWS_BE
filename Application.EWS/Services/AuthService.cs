@@ -43,7 +43,10 @@ namespace Application.EWS.Services
             var user = await _authRepository.GetByEmailAsync(request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                throw new InvalidCredentialsException();
+                throw new InvalidCredentialsException("Invalid email or password.");
+
+            if (user.status == false)
+                throw new AccountInactiveException("Your account is inactive. Please contact reporting person.");
 
             return await IssueTokensAsync(user);
         }
@@ -82,7 +85,7 @@ namespace Application.EWS.Services
         public async Task ResetPasswordAsync(ResetPasswordRequest request)
         {
             var user = await _authRepository.GetUserByResetTokenAsync(request.Token)
-                ?? throw new ResetTokenException();
+                ?? throw new ResetTokenException("Invalid or expired password reset token.");
 
             if (request.NewPassword != request.ConfirmNewPassword)
                 throw new InvalidOperationException("New password and confirm password do not match.");
