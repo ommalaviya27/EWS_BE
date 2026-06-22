@@ -119,5 +119,29 @@ namespace Infrastructure.EWS.Repositories
             return await _context.PublicHolidays
                 .AnyAsync(h => h.HolidayDate >= dayStart && h.HolidayDate < dayEnd && !h.IsDeleted);
         }
+
+        public async Task<List<Attendance>> GetAllPendingForReviewAsync(int reviewerId, bool isAdmin)
+        {
+            IQueryable<int> subjectUserIds;
+
+            if (isAdmin)
+            {
+                subjectUserIds = _context.Users
+                    .Where(u => u.RoleId == 2 && u.status && !u.IsDeleted)
+                    .Select(u => u.Id);
+            }
+            else
+            {
+                subjectUserIds = _context.Users
+                    .Where(u => u.TeamLeadId == reviewerId && u.status && !u.IsDeleted)
+                    .Select(u => u.Id);
+            }
+
+            return await _context.Attendances
+                .Where(a => subjectUserIds.Contains(a.UserId)
+                         && a.ApprovalStatus == ApprovalStatus.Pending
+                         && !a.IsDeleted)
+                .ToListAsync();
+        }
     }
 }

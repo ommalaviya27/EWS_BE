@@ -67,5 +67,12 @@ namespace Api.EWS.Controllers
             var result = await attendanceService.ReviewAsync(id, request);
             return Ok(ResponseHelper.SuccessResponse(result, "Attendance reviewed successfully."));
         }
+
+        [HttpPost("approve-all-pending")]
+        public async Task<IActionResult> ApproveAllPending()
+        {
+            var approvedCount = await attendanceService.ApproveAllPendingAsync();
+            return Ok(ResponseHelper.SuccessResponse(approvedCount, $"Successfully approved {approvedCount} pending attendance records."));
+        }
     }
 }

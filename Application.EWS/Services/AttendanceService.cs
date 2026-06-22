@@ -428,5 +428,27 @@ namespace Application.EWS.Services
             if (attendance.UserId != CurrentUserId)
                 throw new ForbiddenException("You do not have access to this attendance record.");
         }
+
+        public async Task<int> ApproveAllPendingAsync()
+        {
+            if (IsEmployee)
+                throw new ForbiddenException("Employees cannot approve attendance.");
+
+            var pending = await _attendanceRepository.GetAllPendingForReviewAsync(CurrentUserId, IsAdmin);
+            if (pending.Count == 0) return 0;
+
+            var now = DateTime.UtcNow;
+            foreach (var attendance in pending)
+            {
+                attendance.ApprovalStatus = ApprovalStatus.Approved;
+                attendance.ReviewerId = CurrentUserId;
+                attendance.ReviewerRemark = "Noted";
+                attendance.ReviewedAt = now;
+                attendance.UpdatedAt = now;
+            }
+
+            await _repository.UpdateRangeAsync(pending);
+            return pending.Count;
+        }
     }
 }

@@ -14,5 +14,6 @@ namespace Domain.EWS.Interface
         Task<PagedResponse<Attendance>> GetPendingForReviewAsync(int reviewerId, bool isAdmin, PaginationRequest pagination);
         Task<DateTime?> GetUserJoinDateAsync(int userId);
         Task<bool> IsPublicHolidayAsync(DateTime date);
+        Task<List<Attendance>> GetAllPendingForReviewAsync(int reviewerId, bool isAdmin);
     }
 }
