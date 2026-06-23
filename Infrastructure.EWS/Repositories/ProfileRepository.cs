@@ -15,14 +15,22 @@ namespace Infrastructure.EWS.Repositories
                 .Join(_context.Roles,
                     u => u.RoleId,
                     r => r.Id,
-                    (u, r) => new GetProfileResponse
+                    (u, r) => new { User = u, RoleName = r.Name })
+                .GroupJoin(_context.Users,
+                    ur => ur.User.ReportingId,
+                    tl => tl.Id,
+                    (ur, tls) => new { ur.User, ur.RoleName, TeamLeads = tls })
+                .SelectMany(
+                    x => x.TeamLeads.DefaultIfEmpty(),
+                    (x, tl) => new GetProfileResponse
                     {
-                        UserId = u.Id,
-                        Name = u.Name,
-                        Email = u.Email,
-                        MobileNumber = u.MobileNumber,
-                        RoleId = u.RoleId,
-                        RoleName = r.Name,
+                        UserId = x.User.Id,
+                        Name = x.User.Name,
+                        Email = x.User.Email,
+                        MobileNumber = x.User.MobileNumber,
+                        RoleId = x.User.RoleId,
+                        RoleName = x.RoleName,
+                        ReportingPersonName = tl != null ? tl.Name : null,
                     })
                 .AsNoTracking()
                 .FirstOrDefaultAsync();

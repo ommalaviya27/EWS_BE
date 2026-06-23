@@ -8,5 +8,6 @@ namespace Domain.EWS.DataModels.Response.Profile
         public string MobileNumber { get; set; } = string.Empty;
         public int RoleId { get; set; }
         public string RoleName { get; set; } = string.Empty;
+        public string? ReportingPersonName { get; set; }
     }
 }

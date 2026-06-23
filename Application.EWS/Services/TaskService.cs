@@ -220,7 +220,7 @@ namespace Application.EWS.Services
             if (assignee.RoleId != 3)
                 throw new InvalidOperationException("Tasks can only be assigned to employees.");
 
-            if (CurrentRoleId == 2 && assignee.TeamLeadId != CurrentUserId)
+            if (CurrentRoleId == 2 && assignee.ReportingId != CurrentUserId)
                 throw new ForbiddenException("You can only assign tasks to employees under your team.");
         }
     }

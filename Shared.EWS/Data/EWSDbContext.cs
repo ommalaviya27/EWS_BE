@@ -50,7 +50,7 @@ namespace Shared.EWS.Data
                 b.Property(x => x.status).HasColumnName("status");
                 b.Property(x => x.PasswordResetToken).HasColumnName("password_reset_token");
                 b.Property(x => x.PasswordResetTokenExpiry).HasColumnName("password_reset_token_expiry");
-                b.Property(x => x.TeamLeadId).HasColumnName("team_lead_id");
+                b.Property(x => x.ReportingId).HasColumnName("reporting_id");
                 b.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
                 b.HasIndex(x => x.RoleId);
             });
