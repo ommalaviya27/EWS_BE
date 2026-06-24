@@ -45,10 +45,7 @@ namespace Application.EWS.Services
 
         public async Task<AttendanceMonthResponse> GetMonthlyAsync(AttendanceMonthRequest request)
         {
-            if (request.Month < 1 || request.Month > 12)
-                throw new ArgumentException("Month must be between 1 and 12.");
-            if (request.Year < 2000 || request.Year > 2100)
-                throw new ArgumentException("Invalid year.");
+            ValidateMonthYear(request.Month, request.Year);
 
             int targetUserId;
 
@@ -83,32 +80,111 @@ namespace Application.EWS.Services
             var holidays = await _publicHolidayRepository.GetHolidaysForMonthAsync(request.Month, request.Year);
             var holidayMap = holidays.ToDictionary(h => h.HolidayDate.Day, h => h.Name);
 
+            string userName = records.FirstOrDefault()?.User?.Name ?? string.Empty;
+            bool isViewingOwnCalendar = targetUserId == CurrentUserId;
+
+            return BuildMonthResponse(
+                targetUserId, userName, records, joinDate, holidayMap,
+                request.Month, request.Year, isViewingOwnCalendar);
+        }
+
+        public async Task<AttendanceTeamMonthResponse> GetTeamMonthlyAsync(AttendanceTeamMonthRequest request)
+        {
+            ValidateMonthYear(request.Month, request.Year);
+
+            if (IsEmployee)
+                throw new ForbiddenException("Employees cannot view team attendance.");
+
+            var userIds = request.UserIds.Distinct().ToList();
+            if (userIds.Count == 0)
+                return new AttendanceTeamMonthResponse
+                {
+                    Month = request.Month,
+                    Year = request.Year,
+                    MonthLabel = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(request.Month)}-{request.Year}",
+                    Members = new()
+                };
+
+            if (IsTeamLead)
+            {
+                var memberIds = await _attendanceRepository.GetTeamMemberIdsAsync(CurrentUserId);
+                if (userIds.Except(memberIds).Any())
+                    throw new ForbiddenException("You can only view attendance of your own team members.");
+            }
+
+            var joinDates = await _attendanceRepository.GetUserJoinDatesAsync(userIds);
+            var records = await _attendanceRepository.GetMonthlyBatchAsync(userIds, request.Month, request.Year);
+            var recordsByUser = records.GroupBy(r => r.UserId).ToDictionary(g => g.Key, g => g.ToList());
+
+            var holidays = await _publicHolidayRepository.GetHolidaysForMonthAsync(request.Month, request.Year);
+            var holidayMap = holidays.ToDictionary(h => h.HolidayDate.Day, h => h.Name);
+
+            var members = new List<AttendanceMonthResponse>(userIds.Count);
+
+            foreach (var userId in userIds)
+            {
+                var userRecords = recordsByUser.TryGetValue(userId, out var r) ? r : new List<Attendance>();
+                var joinDate = joinDates.TryGetValue(userId, out var jd)
+                    ? jd
+                    : DateTime.SpecifyKind(new DateTime(request.Year, request.Month, 1), DateTimeKind.Utc);
+                string userName = userRecords.FirstOrDefault()?.User?.Name ?? string.Empty;
+
+                members.Add(BuildMonthResponse(
+                    userId, userName, userRecords, joinDate, holidayMap,
+                    request.Month, request.Year, isViewingOwnCalendar: false));
+            }
+
+            return new AttendanceTeamMonthResponse
+            {
+                Month = request.Month,
+                Year = request.Year,
+                MonthLabel = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(request.Month)}-{request.Year}",
+                Members = members
+            };
+        }
+
+        private static void ValidateMonthYear(int month, int year)
+        {
+            if (month < 1 || month > 12)
+                throw new ArgumentException("Month must be between 1 and 12.");
+            if (year < 2000 || year > 2100)
+                throw new ArgumentException("Invalid year.");
+        }
+
+        private static string DowAbbr(DayOfWeek d) => d switch
+        {
+            DayOfWeek.Monday => "M",
+            DayOfWeek.Tuesday => "T",
+            DayOfWeek.Wednesday => "W",
+            DayOfWeek.Thursday => "T",
+            DayOfWeek.Friday => "F",
+            DayOfWeek.Saturday => "S",
+            DayOfWeek.Sunday => "S",
+            _ => "?"
+        };
+
+        private static AttendanceMonthResponse BuildMonthResponse(
+            int targetUserId,
+            string userName,
+            List<Attendance> records,
+            DateTime joinDate,
+            Dictionary<int, string> holidayMap,
+            int month,
+            int year,
+            bool isViewingOwnCalendar)
+        {
             var recordMap = records.ToDictionary(r => r.AttendanceDate.Day);
 
             var today = DateTime.UtcNow.Date;
-            int daysInMonth = DateTime.DaysInMonth(request.Year, request.Month);
-
-            static string DowAbbr(DayOfWeek d) => d switch
-            {
-                DayOfWeek.Monday => "M",
-                DayOfWeek.Tuesday => "T",
-                DayOfWeek.Wednesday => "W",
-                DayOfWeek.Thursday => "T",
-                DayOfWeek.Friday => "F",
-                DayOfWeek.Saturday => "S",
-                DayOfWeek.Sunday => "S",
-                _ => "?"
-            };
+            int daysInMonth = DateTime.DaysInMonth(year, month);
 
             var days = new List<AttendanceDayResponse>(daysInMonth);
             int presentCount = 0;
             int absentCount = 0;
 
-            bool isViewingOwnCalendar = targetUserId == CurrentUserId;
-
             for (int d = 1; d <= daysInMonth; d++)
             {
-                var date = new DateTime(request.Year, request.Month, d, 0, 0, 0, DateTimeKind.Utc);
+                var date = new DateTime(year, month, d, 0, 0, 0, DateTimeKind.Utc);
                 var dow = date.DayOfWeek;
                 bool isWeekend = dow == DayOfWeek.Saturday || dow == DayOfWeek.Sunday;
                 bool isPublicHoliday = holidayMap.TryGetValue(d, out var holidayName);
@@ -143,7 +219,7 @@ namespace Application.EWS.Services
                 }
                 else
                 {
-                    canEdit = date.Date < today;
+                    canEdit = date.Date <= today;
                 }
 
                 days.Add(new AttendanceDayResponse
@@ -162,13 +238,11 @@ namespace Application.EWS.Services
                 });
             }
 
-            string userName = records.FirstOrDefault()?.User?.Name ?? string.Empty;
-
             return new AttendanceMonthResponse
             {
-                Month = request.Month,
-                Year = request.Year,
-                MonthLabel = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(request.Month)}-{request.Year}",
+                Month = month,
+                Year = year,
+                MonthLabel = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month)}-{year}",
                 UserId = targetUserId,
                 UserName = userName,
                 TotalDays = daysInMonth,
@@ -226,7 +300,7 @@ namespace Application.EWS.Services
 
             if (targetDate >= DateTime.UtcNow.Date)
                 throw new InvalidOperationException(
-                    "Today's and future attendance cannot be filled. Everyone can only fill their attendance for today.");
+                    "Only past attendance can be filled; user must manage their own attendance for today.");
 
             if (await _attendanceRepository.IsPublicHolidayAsync(targetDate))
                 throw new InvalidOperationException(
@@ -268,9 +342,9 @@ namespace Application.EWS.Services
                 if (attendance.UserId == CurrentUserId)
                     throw new ForbiddenException("Admins cannot edit their own attendance.");
 
-                if (attendance.AttendanceDate.Date >= DateTime.UtcNow.Date)
+                if (attendance.AttendanceDate.Date > DateTime.UtcNow.Date)
                     throw new InvalidOperationException(
-                        "Today's and future attendance cannot be edited. The user must manage their own attendance for today.");
+                        "Future attendance cannot be edited. The user must manage their own attendance for today.");
             }
             else if (IsTeamLead)
             {
@@ -286,9 +360,9 @@ namespace Application.EWS.Services
                     if (!memberIds.Contains(attendance.UserId))
                         throw new ForbiddenException("You can only edit attendance for members of your team.");
 
-                    if (attendance.AttendanceDate.Date >= DateTime.UtcNow.Date)
+                    if (attendance.AttendanceDate.Date > DateTime.UtcNow.Date)
                         throw new InvalidOperationException(
-                            "Today's and future attendance cannot be edited. The employee must manage their own attendance for today.");
+                            "Future attendance cannot be edited. The employee must manage their own attendance for today.");
                 }
             }
             else
@@ -327,83 +401,6 @@ namespace Application.EWS.Services
                 ?? throw new InvalidOperationException("Failed to retrieve updated attendance record.");
 
             return _mapper.Map<AttendanceResponse>(updated);
-        }
-
-        public async Task<AttendanceResponse> ReviewAsync(int id, ReviewAttendanceRequest request)
-        {
-            if (IsEmployee)
-                throw new ForbiddenException("Employees cannot review attendance.");
-
-            if (request.ApprovalStatus == ApprovalStatus.Pending)
-                throw new InvalidOperationException("Review decision must be Approved or Rejected.");
-
-            var attendance = await _attendanceRepository.GetWithDetailsAsync(id)
-                ?? throw new NotFoundException($"Attendance record with id '{id}' was not found.");
-
-            if (await _attendanceRepository.IsPublicHolidayAsync(attendance.AttendanceDate))
-                throw new InvalidOperationException(
-                    $"Attendance on {attendance.AttendanceDate:yyyy-MM-dd} is a public holiday and cannot be reviewed.");
-
-            if (attendance.ApprovalStatus != ApprovalStatus.Pending)
-                throw new InvalidOperationException(
-                    "This attendance record has already been reviewed and is locked.");
-
-            if (IsTeamLead)
-            {
-                var memberIds = await _attendanceRepository.GetTeamMemberIdsAsync(CurrentUserId);
-                if (!memberIds.Contains(attendance.UserId))
-                    throw new ForbiddenException("You can only review attendance for members of your team.");
-            }
-
-            attendance.ApprovalStatus = request.ApprovalStatus;
-            attendance.ReviewerId = CurrentUserId;
-            attendance.ReviewerRemark = request.ReviewerRemark;
-            attendance.ReviewedAt = DateTime.UtcNow;
-            attendance.UpdatedAt = DateTime.UtcNow;
-
-            await _repository.UpdateAsync(attendance);
-
-            if (request.ApprovalStatus == ApprovalStatus.Rejected && attendance.User != null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _emailService.SendAttendanceRejectedEmailAsync(
-                            attendance.User.Email,
-                            attendance.User.Name,
-                            attendance.AttendanceDate,
-                            request.ReviewerRemark);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(
-                            ex,
-                            "Failed to send attendance rejection email for AttendanceId {AttendanceId}, UserId {UserId}",
-                            attendance.Id,
-                            attendance.UserId);
-                    }
-                });
-            }
-
-            var reviewed = await _attendanceRepository.GetWithDetailsAsync(id)
-                ?? throw new InvalidOperationException("Failed to retrieve reviewed attendance record.");
-
-            return _mapper.Map<AttendanceResponse>(reviewed);
-        }
-
-        public async Task<PagedResponse<AttendanceResponse>> GetPendingForReviewAsync(PaginationRequest pagination)
-        {
-            if (IsEmployee)
-                throw new ForbiddenException("Employees cannot review attendance.");
-
-            var paged = await _attendanceRepository.GetPendingForReviewAsync(CurrentUserId, IsAdmin, pagination);
-
-            return PagedResponse<AttendanceResponse>.Create(
-                paged.Items.Select(_mapper.Map<AttendanceResponse>).ToList(),
-                paged.TotalCount,
-                paged.PageNumber,
-                paged.PageSize);
         }
 
         private async Task<Attendance> GetAttendanceOrThrowAsync(int id)

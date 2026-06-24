@@ -1,8 +1,6 @@
 using Domain.EWS.Interface;
 using Microsoft.EntityFrameworkCore;
 using Shared.EWS.Data;
-using Shared.EWS.DataModel.Request;
-using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
 
@@ -37,6 +35,22 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Attendance>> GetMonthlyBatchAsync(List<int> userIds, int month, int year)
+        {
+            var first = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var last = first.AddMonths(1);
+
+            return await _context.Attendances
+                .Include(a => a.User)
+                .Include(a => a.Reviewer)
+                .Where(a => userIds.Contains(a.UserId)
+                         && a.AttendanceDate >= first
+                         && a.AttendanceDate < last
+                         && !a.IsDeleted)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
         public async Task<bool> ExistsForDateAsync(int userId, DateTime date, int? excludeId = null)
         {
             var dayStart = date.Date.ToUniversalTime();
@@ -62,43 +76,6 @@ namespace Infrastructure.EWS.Repositories
                 .ToListAsync();
         }
 
-        public async Task<PagedResponse<Attendance>> GetPendingForReviewAsync(int reviewerId, bool isAdmin, PaginationRequest pagination)
-        {
-            IQueryable<int> subjectUserIds;
-
-            if (isAdmin)
-            {
-                subjectUserIds = _context.Users
-                    .Where(u => u.RoleId == 2 && u.status && !u.IsDeleted)
-                    .Select(u => u.Id);
-            }
-            else
-            {
-                subjectUserIds = _context.Users
-                    .Where(u => u.ReportingId == reviewerId && u.status && !u.IsDeleted)
-                    .Select(u => u.Id);
-            }
-
-            var query = _context.Attendances
-                .Include(a => a.User)
-                .Include(a => a.Reviewer)
-                .Where(a => subjectUserIds.Contains(a.UserId)
-                         && a.ApprovalStatus == ApprovalStatus.Pending
-                         && !a.IsDeleted)
-                .OrderByDescending(a => a.AttendanceDate)
-                .ThenBy(a => a.UserId)
-                .AsNoTracking();
-
-            var totalCount = await query.CountAsync();
-
-            var items = await query
-                .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-                .Take(pagination.PageSize)
-                .ToListAsync();
-
-            return PagedResponse<Attendance>.Create(items, totalCount, pagination.PageNumber, pagination.PageSize);
-        }
-
         public async Task<DateTime?> GetUserJoinDateAsync(int userId)
         {
             var createdAt = await _context.Users
@@ -109,6 +86,18 @@ namespace Infrastructure.EWS.Repositories
             return createdAt.HasValue
                 ? DateTime.SpecifyKind(createdAt.Value.Date, DateTimeKind.Utc)
                 : null;
+        }
+
+        public async Task<Dictionary<int, DateTime>> GetUserJoinDatesAsync(List<int> userIds)
+        {
+            var users = await _context.Users
+                .Where(u => userIds.Contains(u.Id) && !u.IsDeleted)
+                .Select(u => new { u.Id, u.CreatedAt })
+                .ToListAsync();
+
+            return users.ToDictionary(
+                u => u.Id,
+                u => DateTime.SpecifyKind(u.CreatedAt.Date, DateTimeKind.Utc));
         }
 
         public async Task<bool> IsPublicHolidayAsync(DateTime date)

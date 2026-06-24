@@ -11,11 +11,10 @@ namespace Application.EWS.Interfaces
     {
         Task<AttendanceResponse> GetByIdAsync(int id);
         Task<AttendanceMonthResponse> GetMonthlyAsync(AttendanceMonthRequest request);
+        Task<AttendanceTeamMonthResponse> GetTeamMonthlyAsync(AttendanceTeamMonthRequest request);
         Task<AttendanceResponse> AddAsync(AddAttendanceRequest request);
         Task<AttendanceResponse> AdminAddAsync(AdminAddAttendanceRequest request);
         Task<AttendanceResponse> EditAsync(int id, EditAttendanceRequest request);
-        Task<AttendanceResponse> ReviewAsync(int id, ReviewAttendanceRequest request);
-        Task<PagedResponse<AttendanceResponse>> GetPendingForReviewAsync(PaginationRequest pagination);
         Task<int> ApproveAllPendingAsync();
     }
 }

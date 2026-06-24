@@ -43,4 +43,12 @@ namespace Domain.EWS.DataModels.Response.Attendance
         public int AbsentCount { get; set; }
         public List<AttendanceDayResponse> Days { get; set; } = new();
     }
+
+    public class AttendanceTeamMonthResponse
+    {
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public string MonthLabel { get; set; } = string.Empty;
+        public List<AttendanceMonthResponse> Members { get; set; } = new();
+    }
 }

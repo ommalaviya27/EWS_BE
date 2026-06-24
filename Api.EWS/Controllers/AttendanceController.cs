@@ -20,18 +20,18 @@ namespace Api.EWS.Controllers
             return Ok(ResponseHelper.SuccessResponse(result, "Monthly attendance fetched successfully."));
         }
 
+        [HttpGet("team-monthly")]
+        public async Task<IActionResult> GetTeamMonthly([FromQuery] AttendanceTeamMonthRequest request)
+        {
+            var result = await attendanceService.GetTeamMonthlyAsync(request);
+            return Ok(ResponseHelper.SuccessResponse(result, "Team monthly attendance fetched successfully."));
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
             var result = await attendanceService.GetByIdAsync(id);
             return Ok(ResponseHelper.SuccessResponse(result, "Attendance record fetched successfully."));
-        }
-
-        [HttpGet("pending-review")]
-        public async Task<IActionResult> GetPendingForReview([FromQuery] PaginationRequest pagination)
-        {
-            var result = await attendanceService.GetPendingForReviewAsync(pagination);
-            return Ok(ResponseHelper.SuccessResponse(result, "Pending attendance records fetched successfully."));
         }
 
         [HttpPost]
@@ -59,13 +59,6 @@ namespace Api.EWS.Controllers
         {
             var result = await attendanceService.EditAsync(id, request);
             return Ok(ResponseHelper.SuccessResponse(result, "Attendance updated successfully."));
-        }
-
-        [HttpPut("{id:int}/review")]
-        public async Task<IActionResult> Review(int id, [FromBody] ReviewAttendanceRequest request)
-        {
-            var result = await attendanceService.ReviewAsync(id, request);
-            return Ok(ResponseHelper.SuccessResponse(result, "Attendance reviewed successfully."));
         }
 
         [HttpPost("approve-all-pending")]
