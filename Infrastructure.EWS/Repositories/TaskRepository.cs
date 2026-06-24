@@ -97,7 +97,7 @@ namespace Infrastructure.EWS.Repositories
 
         public async Task<IEnumerable<User>> GetTeamMembersAsync(int teamLeadUserId)
             => await _context.Users
-                .Where(u => u.TeamLeadId == teamLeadUserId && u.RoleId == 3 && !u.IsDeleted)
+                .Where(u => u.ReportingId == teamLeadUserId && u.RoleId == 3 && !u.IsDeleted)
                 .AsNoTracking()
                 .ToListAsync();
 

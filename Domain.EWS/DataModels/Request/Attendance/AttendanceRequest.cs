@@ -1,4 +1,3 @@
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.Enums;
 
 namespace Domain.EWS.DataModels.Request.Attendance
@@ -20,16 +19,17 @@ namespace Domain.EWS.DataModels.Request.Attendance
         public AttendanceStatus Status { get; set; }
     }
 
-    public class ReviewAttendanceRequest
-    {
-        public ApprovalStatus ApprovalStatus { get; set; }
-        public string? ReviewerRemark { get; set; }
-    }
-
     public class AttendanceMonthRequest
     {
         public int Month { get; set; }
         public int Year { get; set; }
         public int? UserId { get; set; }
+    }
+
+    public class AttendanceTeamMonthRequest
+    {
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public List<int> UserIds { get; set; } = new();
     }
 }

@@ -19,13 +19,13 @@ namespace Infrastructure.EWS.Repositories
                     u => u.RoleId,
                     r => r.Id,
                     (u, r) => new { u, r })
-                .GroupJoin(_context.Users.Where(tl => !tl.IsDeleted),
-                    ur => ur.u.TeamLeadId,
-                    tl => (int?)tl.Id,
-                    (ur, tls) => new { ur.u, ur.r, tls })
+                .GroupJoin(_context.Users.Where(rp => !rp.IsDeleted),
+                    ur => ur.u.ReportingId,
+                    rp => (int?)rp.Id,
+                    (ur, rps) => new { ur.u, ur.r, rps })
                 .SelectMany(
-                    x => x.tls.DefaultIfEmpty(),
-                    (x, tl) => new GetUserResponse
+                    x => x.rps.DefaultIfEmpty(),
+                    (x, rp) => new GetUserResponse
                     {
                         UserId = x.u.Id,
                         Name = x.u.Name,
@@ -33,8 +33,8 @@ namespace Infrastructure.EWS.Repositories
                         MobileNumber = x.u.MobileNumber,
                         RoleId = x.u.RoleId,
                         RoleName = x.r.Name,
-                        TeamLeadId = x.u.TeamLeadId,
-                        TeamLeadName = tl != null ? tl.Name : null,
+                        ReportingId = x.u.ReportingId,
+                        ReportingName = rp != null ? rp.Name : null,
                         Status = x.u.status,
                     })
                 .AsNoTracking();
@@ -54,8 +54,8 @@ namespace Infrastructure.EWS.Repositories
                 .GroupBy(_ => 1)
                 .Select(g => new
                 {
-                    Assigned = g.Count(u => u.TeamLeadId != null),
-                    Unassigned = g.Count(u => u.TeamLeadId == null),
+                    Assigned = g.Count(u => u.ReportingId != null),
+                    Unassigned = g.Count(u => u.ReportingId == null),
                 })
                 .FirstOrDefaultAsync();
 
@@ -68,8 +68,8 @@ namespace Infrastructure.EWS.Repositories
             var filter = (pagination.Filter ?? "all").ToLowerInvariant();
             var filteredQuery = filter switch
             {
-                "assigned" => baseQuery.Where(u => u.RoleId == 3 && u.TeamLeadId != null),
-                "unassigned" => baseQuery.Where(u => u.RoleId == 3 && u.TeamLeadId == null),
+                "assigned"   => baseQuery.Where(u => u.RoleId == 3 && u.ReportingId != null),
+                "unassigned" => baseQuery.Where(u => u.RoleId == 3 && u.ReportingId == null),
                 _            => baseQuery,
             };
 
@@ -85,13 +85,13 @@ namespace Infrastructure.EWS.Repositories
                     u => u.RoleId,
                     r => r.Id,
                     (u, r) => new { u, r })
-                .GroupJoin(_context.Users.Where(tl => !tl.IsDeleted),
-                    ur => ur.u.TeamLeadId,
-                    tl => (int?)tl.Id,
-                    (ur, tls) => new { ur.u, ur.r, tls })
+                .GroupJoin(_context.Users.Where(rp => !rp.IsDeleted),
+                    ur => ur.u.ReportingId,
+                    rp => (int?)rp.Id,
+                    (ur, rps) => new { ur.u, ur.r, rps })
                 .SelectMany(
-                    x => x.tls.DefaultIfEmpty(),
-                    (x, tl) => new GetUserResponse
+                    x => x.rps.DefaultIfEmpty(),
+                    (x, rp) => new GetUserResponse
                     {
                         UserId = x.u.Id,
                         Name = x.u.Name,
@@ -99,8 +99,8 @@ namespace Infrastructure.EWS.Repositories
                         MobileNumber = x.u.MobileNumber,
                         RoleId = x.u.RoleId,
                         RoleName = x.r.Name,
-                        TeamLeadId = x.u.TeamLeadId,
-                        TeamLeadName = tl != null ? tl.Name : null,
+                        ReportingId = x.u.ReportingId,
+                        ReportingName = rp != null ? rp.Name : null,
                         Status = x.u.status,
                     })
                 .AsNoTracking()
@@ -118,12 +118,16 @@ namespace Infrastructure.EWS.Repositories
         public async Task<bool> RoleExistsAsync(int roleId)
             => await _context.Roles.AnyAsync(r => r.Id == roleId);
 
-        public async Task<bool> TeamLeadExistsAsync(int teamLeadId)
-            => await _context.Users.AnyAsync(u => u.Id == teamLeadId && u.RoleId == 2 && !u.IsDeleted);
+        public async Task<bool> ReportingExistsAsync(int reportingId)
+            => await _context.Users.AnyAsync(u => u.Id == reportingId && u.RoleId == 2 && !u.IsDeleted);
+
+        public async Task<bool> AdminExistsAsync(int adminId)
+            => await _context.Users.AnyAsync(u => u.Id == adminId && u.RoleId == 1 && !u.IsDeleted);
 
         public async Task<IEnumerable<RoleResponse>> GetRolesAsync()
         {
             return await _context.Roles
+                .Where(r => r.Id != 1) // Exclude Admin — only one Admin exists and cannot be created
                 .AsNoTracking()
                 .Select(r => new RoleResponse { RoleId = r.Id, RoleName = r.Name })
                 .ToListAsync();
@@ -136,9 +140,9 @@ namespace Infrastructure.EWS.Repositories
                 .AsNoTracking()
                 .FirstOrDefaultAsync();
 
-        public async Task<string?> GetTeamLeadNameAsync(int teamLeadId)
+        public async Task<string?> GetReportingNameAsync(int reportingId)
             => await _context.Users
-                .Where(u => u.Id == teamLeadId && !u.IsDeleted)
+                .Where(u => u.Id == reportingId && !u.IsDeleted)
                 .Select(u => u.Name)
                 .AsNoTracking()
                 .FirstOrDefaultAsync();

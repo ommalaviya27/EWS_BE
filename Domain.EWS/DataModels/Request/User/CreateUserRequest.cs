@@ -7,7 +7,7 @@ namespace Domain.EWS.DataModels.Request.User
         public required string Password { get; set; }
         public required string MobileNumber { get; set; }
         public int RoleId { get; set; }
-        public int? TeamLeadId { get; set; }
+        public int? ReportingId { get; set; }
         public bool Status { get; set; } = true;
     }
 }

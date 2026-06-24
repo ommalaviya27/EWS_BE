@@ -9,8 +9,8 @@ namespace Domain.EWS.DataModels.Response.User
         public int RoleId { get; set; }
         public string RoleName { get; set; } = string.Empty;
         public bool Status { get; set; }
-        public int? TeamLeadId { get; set; }
-        public string? TeamLeadName { get; set; }
+        public int? ReportingId { get; set; }
+        public string? ReportingName { get; set; }
     }
     
     public class UserSummary

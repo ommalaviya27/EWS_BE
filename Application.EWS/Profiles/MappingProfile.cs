@@ -33,7 +33,7 @@ namespace Application.EWS.Profiles
                 .ForMember(d => d.UserId, o => o.MapFrom(s => s.Id))
                 .ForMember(d => d.Status, o => o.MapFrom(s => s.status))
                 .ForMember(d => d.RoleName, o => o.Ignore())
-                .ForMember(d => d.TeamLeadName, o => o.Ignore());
+                .ForMember(d => d.ReportingName, o => o.Ignore());
 
             CreateMap<Role, RoleResponse>()
                 .ForMember(d => d.RoleId, o => o.MapFrom(s => s.Id))

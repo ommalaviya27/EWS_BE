@@ -36,10 +36,20 @@ namespace Application.EWS.Services
         {
             ValidateAdmin("create");
 
+            if (request.RoleId == 1)
+                throw new ForbiddenException("Admin users cannot be created. Only one Admin is allowed in the system.");
+
             await ValidateRoleAsync(request.RoleId);
 
-            if (request.TeamLeadId.HasValue)
-                await ValidateTeamLeadAsync(request.TeamLeadId.Value);
+            int? resolvedReportingId = request.RoleId switch
+            {
+                3 => request.ReportingId,
+                2 => CurrentUserId,
+                _ => null
+            };
+
+            if (request.RoleId == 3 && resolvedReportingId.HasValue)
+                await ValidateReportingAsync(resolvedReportingId.Value);
 
             if (await _userRepository.EmailExistsAsync(request.Email))
                 throw new DuplicateRecordException($"A user with email '{request.Email}' already exists.");
@@ -51,20 +61,20 @@ namespace Application.EWS.Services
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 MobileNumber = request.MobileNumber.Trim(),
                 RoleId = request.RoleId,
-                TeamLeadId = request.TeamLeadId,
+                ReportingId = resolvedReportingId,
                 status = request.Status
             };
 
             var created = await AddAsync(entity);
 
             var roleName = await _userRepository.GetRoleNameAsync(created.RoleId);
-            string? teamLeadName = created.TeamLeadId.HasValue
-                ? await _userRepository.GetTeamLeadNameAsync(created.TeamLeadId.Value)
+            string? reportingName = created.ReportingId.HasValue
+                ? await _userRepository.GetReportingNameAsync(created.ReportingId.Value)
                 : null;
 
             var response = _mapper.Map<GetUserResponse>(created);
             response.RoleName = roleName ?? string.Empty;
-            response.TeamLeadName = teamLeadName;
+            response.ReportingName = reportingName;
             return response;
         }
 
@@ -75,10 +85,26 @@ namespace Application.EWS.Services
             var user = await GetByIdAsync(id)
                 ?? throw new NotFoundException($"User with id '{id}' was not found.");
 
+            if (request.RoleId == 1)
+                throw new ForbiddenException("Cannot assign Admin role to a user. Only one Admin is allowed in the system.");
+
+            if (user.RoleId == 1)
+                throw new ForbiddenException("The Admin user cannot be modified through this operation.");
+
             await ValidateRoleAsync(request.RoleId);
 
-            if (request.TeamLeadId.HasValue)
-                await ValidateTeamLeadAsync(request.TeamLeadId.Value);
+            int? resolvedReportingId = request.RoleId switch
+            {
+                3 => request.ReportingId,
+                2 => request.ReportingId ?? user.ReportingId,
+                _ => null
+            };
+
+            if (request.RoleId == 3 && resolvedReportingId.HasValue)
+                await ValidateReportingAsync(resolvedReportingId.Value);
+
+            if (request.RoleId == 2 && resolvedReportingId.HasValue)
+                await ValidateAdminAsync(resolvedReportingId.Value);
 
             if (await _userRepository.EmailExistsAsync(request.Email, id))
                 throw new DuplicateRecordException($"Email '{request.Email}' is already in use by another user.");
@@ -87,19 +113,19 @@ namespace Application.EWS.Services
             user.Email = request.Email.Trim().ToLower();
             user.MobileNumber = request.MobileNumber.Trim();
             user.RoleId = request.RoleId;
-            user.TeamLeadId = request.TeamLeadId;
+            user.ReportingId = resolvedReportingId;
             user.status = request.Status;
 
             var updated = await UpdateAsync(user);
 
             var roleName = await _userRepository.GetRoleNameAsync(updated.RoleId);
-            string? teamLeadName = updated.TeamLeadId.HasValue
-                ? await _userRepository.GetTeamLeadNameAsync(updated.TeamLeadId.Value)
+            string? reportingName = updated.ReportingId.HasValue
+                ? await _userRepository.GetReportingNameAsync(updated.ReportingId.Value)
                 : null;
 
             var response = _mapper.Map<GetUserResponse>(updated);
             response.RoleName = roleName ?? string.Empty;
-            response.TeamLeadName = teamLeadName;
+            response.ReportingName = reportingName;
             return response;
         }
 
@@ -109,6 +135,9 @@ namespace Application.EWS.Services
 
             var user = await GetByIdAsync(id)
                 ?? throw new NotFoundException($"User with id '{id}' was not found.");
+
+            if (user.RoleId == 1)
+                throw new ForbiddenException("The Admin user cannot be deleted.");
 
             return await DeleteAsync(user.Id);
         }
@@ -131,10 +160,16 @@ namespace Application.EWS.Services
                 throw new NotFoundException($"Role with id '{roleId}' was not found.");
         }
 
-        private async Task ValidateTeamLeadAsync(int teamLeadId)
+        private async Task ValidateReportingAsync(int reportingId)
         {
-            if (!await _userRepository.TeamLeadExistsAsync(teamLeadId))
-                throw new NotFoundException($"Team Lead with id '{teamLeadId}' was not found or is not a Team Lead.");
+            if (!await _userRepository.ReportingExistsAsync(reportingId))
+                throw new NotFoundException($"Reporting manager with id '{reportingId}' was not found or is not a Team Lead.");
+        }
+
+        private async Task ValidateAdminAsync(int adminId)
+        {
+            if (!await _userRepository.AdminExistsAsync(adminId))
+                throw new NotFoundException($"Admin with id '{adminId}' was not found or is not an Admin.");
         }
     }
 }

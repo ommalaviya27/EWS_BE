@@ -47,6 +47,22 @@ namespace Infrastructure.EWS.Repositories
             return entity;
         }
 
+        public async Task<IEnumerable<T>> AddRangeAsync(IEnumerable<T> entities)
+        {
+            foreach (var entity in entities)
+            {
+                if (entity is BaseEntity baseEntity)
+                {
+                    baseEntity.CreatedAt = DateTime.UtcNow;
+                    baseEntity.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            await _dbSet.AddRangeAsync(entities);
+            await _context.SaveChangesAsync();
+            return entities;
+        }
+
         public async Task<T> UpdateAsync(T entity)
         {
             if (entity is BaseEntity baseEntity)
@@ -55,6 +71,21 @@ namespace Infrastructure.EWS.Repositories
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
             return entity;
+        }
+
+        public async Task<IEnumerable<T>> UpdateRangeAsync(IEnumerable<T> entities)
+        {
+            foreach (var entity in entities)
+            {
+                if (entity is BaseEntity baseEntity)
+                {
+                    baseEntity.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            _dbSet.UpdateRange(entities);
+            await _context.SaveChangesAsync();
+            return entities;
         }
 
         public async Task<bool> DeleteAsync(object id)

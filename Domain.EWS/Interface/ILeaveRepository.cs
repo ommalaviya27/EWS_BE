@@ -11,7 +11,7 @@ namespace Domain.EWS.Interface
         Task<PagedResponse<LeaveApplication>> GetMyLeavesAsync(int userId, PaginationRequest pagination);
         Task<PagedResponse<LeaveApplication>> GetPendingForReviewAsync(int reviewerId, bool isAdmin, PaginationRequest pagination);
         Task<bool> HasOverlapAsync(int userId, DateTime startDate, DateTime endDate, int? excludeId = null);
-        Task<List<int>> GetTeamMemberIdsAsync(int teamLeadId);
+        Task<List<int>> GetTeamMemberIdsAsync(int reportingId);
         Task<List<Attendance>> GetAutoPlacedAttendancesAsync(int userId, DateTime startDate, DateTime endDate);
         Task<Attendance?> GetForDateIncludingDeletedAsync(int userId, DateTime date);
     }

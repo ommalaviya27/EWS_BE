@@ -11,9 +11,10 @@ namespace Domain.EWS.Interface
         Task<GetUserResponse?> GetUserByIdWithDetailsAsync(int id);
         Task<bool> EmailExistsAsync(string email, int? excludeId = null);
         Task<bool> RoleExistsAsync(int roleId);
-        Task<bool> TeamLeadExistsAsync(int teamLeadId);
+        Task<bool> ReportingExistsAsync(int reportingId);
+        Task<bool> AdminExistsAsync(int adminId);
         Task<IEnumerable<RoleResponse>> GetRolesAsync();
         Task<string?> GetRoleNameAsync(int roleId);
-        Task<string?> GetTeamLeadNameAsync(int teamLeadId);
+        Task<string?> GetReportingNameAsync(int reportingId);
     }
 }

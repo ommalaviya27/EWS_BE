@@ -9,7 +9,7 @@ namespace Shared.EWS.Entities
         public required string PasswordHash { get; set; }
         public required string MobileNumber { get; set; }
         public bool status { get; set; } = true;
-        public int? TeamLeadId { get; set; }
+        public int? ReportingId { get; set; }
 
         // Forgot password (If necessary.....)
         public string? PasswordResetToken { get; set; }

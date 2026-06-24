@@ -20,9 +20,15 @@ namespace Shared.EWS.Services
  
         public virtual Task<TEntity> AddAsync(TEntity entity)
             => _repository.AddAsync(entity);
+
+        public virtual Task<IEnumerable<TEntity>> AddRangeAsync(IEnumerable<TEntity> entities)
+            => _repository.AddRangeAsync(entities);
  
         public virtual Task<TEntity> UpdateAsync(TEntity entity)
             => _repository.UpdateAsync(entity);
+
+        public virtual Task<IEnumerable<TEntity>> UpdateRangeAsync(IEnumerable<TEntity> entities)
+            => _repository.UpdateRangeAsync(entities);
  
         public virtual Task<bool> DeleteAsync(object id)
             => _repository.DeleteAsync(id);

@@ -52,7 +52,7 @@ namespace Infrastructure.EWS.Repositories
             else
             {
                 subjectUserIds = _context.Users
-                    .Where(u => u.TeamLeadId == reviewerId && u.status && !u.IsDeleted)
+                    .Where(u => u.ReportingId == reviewerId && u.status && !u.IsDeleted)
                     .Select(u => u.Id);
             }
 
@@ -90,10 +90,10 @@ namespace Infrastructure.EWS.Repositories
             return await query.AnyAsync();
         }
 
-        public async Task<List<int>> GetTeamMemberIdsAsync(int teamLeadId)
+        public async Task<List<int>> GetTeamMemberIdsAsync(int reportingId)
         {
             return await _context.Users
-                .Where(u => u.TeamLeadId == teamLeadId && u.status && !u.IsDeleted)
+                .Where(u => u.ReportingId == reportingId && u.status && !u.IsDeleted)
                 .Select(u => u.Id)
                 .ToListAsync();
         }
