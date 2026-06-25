@@ -39,8 +39,8 @@ namespace Domain.EWS.DataModels.Response.Attendance
         public int UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
         public int TotalDays { get; set; }
-        public int PresentCount { get; set; }
-        public int AbsentCount { get; set; }
+        public double PresentCount { get; set; }
+        public double AbsentCount { get; set; }
         public List<AttendanceDayResponse> Days { get; set; } = new();
     }
 
