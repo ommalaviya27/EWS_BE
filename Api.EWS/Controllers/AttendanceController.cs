@@ -2,7 +2,6 @@ using Application.EWS.Interfaces;
 using Domain.EWS.DataModels.Request.Attendance;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Shared.EWS.DataModel.Request;
 using Shared.EWS.Helpers;
 using System.Net;
 

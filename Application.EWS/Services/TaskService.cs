@@ -151,11 +151,11 @@ namespace Application.EWS.Services
             return await DeleteAsync(task.Id);
         }
 
-        public async Task<IEnumerable<GetUserResponse>> GetTeamMembersAsync()
+        public async Task<IEnumerable<TeamLeaderResponse>> GetTeamMembersAsync()
         {
             ValidateTeamLeadOrAdmin("view team members for");
             var users = await _taskRepository.GetTeamMembersAsync(CurrentUserId);
-            return _mapper.Map<IEnumerable<GetUserResponse>>(users);
+            return _mapper.Map<IEnumerable<TeamLeaderResponse>>(users);
         }
 
         public async Task<PagedResponse<GetProjectResponse>> GetMyProjectsAsync(ProjectListRequest request)

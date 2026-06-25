@@ -3,8 +3,6 @@ using AutoMapper;
 using Domain.EWS.DataModels.Request.Attendance;
 using Domain.EWS.DataModels.Response.Attendance;
 using Domain.EWS.Interface;
-using Shared.EWS.DataModel.Request;
-using Shared.EWS.DataModel.Response;
 using Shared.EWS.Entities;
 using Shared.EWS.Enums;
 using Shared.EWS.Exceptions;
@@ -19,16 +17,12 @@ namespace Application.EWS.Services
         IAttendanceRepository repository,
         IPublicHolidayRepository publicHolidayRepository,
         IMapper mapper,
-        IEmailService emailService,
-        ILogger<LeaveService> logger,
         ClaimsPrincipal principal)
         : GenericService<Attendance>(repository, principal), IAttendanceService
     {
         private readonly IAttendanceRepository _attendanceRepository = repository;
         private readonly IPublicHolidayRepository _publicHolidayRepository = publicHolidayRepository;
         private readonly IMapper _mapper = mapper;
-        private readonly IEmailService _emailService = emailService;
-        private readonly ILogger<LeaveService> _logger = logger;
 
         private bool IsAdmin => CurrentRoleId == 1;
         private bool IsTeamLead => CurrentRoleId == 2;
@@ -179,8 +173,9 @@ namespace Application.EWS.Services
             int daysInMonth = DateTime.DaysInMonth(year, month);
 
             var days = new List<AttendanceDayResponse>(daysInMonth);
-            int presentCount = 0;
-            int absentCount = 0;
+            double presentCount = 0;
+            double absentCount = 0;
+            int workingDays = 0;
 
             for (int d = 1; d <= daysInMonth; d++)
             {
@@ -190,14 +185,39 @@ namespace Application.EWS.Services
                 bool isPublicHoliday = holidayMap.TryGetValue(d, out var holidayName);
                 bool isBeforeJoining = date.Date < joinDate.Date;
 
+                if(!isBeforeJoining && !isWeekend && !isPublicHoliday)
+                {
+                    workingDays++;
+                }
+
                 recordMap.TryGetValue(d, out var rec);
 
                 if (!isBeforeJoining)
                 {
                     if (rec != null)
                     {
-                        if (rec.Status == AttendanceStatus.Absent) absentCount++;
-                        else presentCount++;
+                        switch (rec.Status)
+                        {
+                            case AttendanceStatus.Present_WFO:
+                                presentCount += 1;
+                                break;
+                            case AttendanceStatus.Present_WFH:
+                                presentCount += 1;
+                                break;
+
+                            case AttendanceStatus.Absent:
+                                absentCount += 1;
+                                break;
+
+                            case AttendanceStatus.HalfDay_WFH:
+                                presentCount += 0.5;
+                                absentCount += 0.5;
+                                break;
+                            case AttendanceStatus.HalfDay_WFO:
+                                presentCount += 0.5;
+                                absentCount += 0.5;
+                                break;
+                        }
                     }
                     else if (!isWeekend && !isPublicHoliday && date.Date < today)
                     {
@@ -245,7 +265,7 @@ namespace Application.EWS.Services
                 MonthLabel = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month)}-{year}",
                 UserId = targetUserId,
                 UserName = userName,
-                TotalDays = daysInMonth,
+                TotalDays = workingDays,
                 PresentCount = presentCount,
                 AbsentCount = absentCount,
                 Days = days
